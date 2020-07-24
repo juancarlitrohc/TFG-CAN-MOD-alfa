@@ -1,0 +1,8 @@
+-- Procesos que creo que tiene que tener el maestro
+
+-- Funciones:
+-- SendBroadcast()
+-- EsperarRespuesta()
+-- SolicitarDatos(Esclavo, Sensor)
+-- EnviarOrden(Esclavo, Actuador) 
+-- ProcesarError(ErrorID)
