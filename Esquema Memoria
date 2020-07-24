@@ -1,6 +1,7 @@
 1.- Introdución
 2.- Objetivos
-3.- Diferencias CAN y MOD
+3.- Diferencias CAN y MOD :
+            Mod bus  se mueve solo en la capa de datos y utiliza el RS485 para el transporte de mensajes por el medio fisico
 4.- Esquema fisico
 5.- Esquema Programa
 6.- Simulaciones.
