@@ -5,7 +5,7 @@
 5.- Esquema Programa
 6.- Simulaciones.
 7.- Pruebas y Demostración física
-8.- Conclusiones
+8.- Conclusiones y Mejoras
 9.- Referencias WEB: 
       Implementación CAN LITE VHDL: https://github.com/bggardner/can-lite-vhdl/blob/master/src/CanLite.vhd
       TFG MOD BUS intel 8051: http://deeea.urv.cat/public/PROPOSTES/pub/pdf/561pub.pdf
