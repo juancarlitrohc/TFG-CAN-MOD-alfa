@@ -4,9 +4,12 @@
             Mod bus  se mueve solo en la capa de datos y utiliza el RS485 para el transporte de mensajes por el medio fisico
             MOD se utiliza cuando queremos intercambiar informacion "amplia" entre el maestro y los exclavos mientras que CAN se utiliza mas que nada paraenviar ordenes a los
             actuadores y valores de los sensores (por eso modbus se utiliza en procesos industriales y can se utiliza en automoción)
-4.- Esquema fisico
+4.- Esquema fisico y bases comunicacion
+            half-duplex
+            Todos leen el mensaje pero solo lo analiza el destinatario
             Trama: |START|DATOS|PARIDAD|FINAL|
             DATOS: |DESTINO|ORDEN|INFORMACION|
+            
 5.- Esquema Programa
             
 6.- Simulaciones.
