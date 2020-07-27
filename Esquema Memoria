@@ -10,6 +10,8 @@
             Trama: |START|DATOS|PARIDAD|FINAL|
             DATOS: |DESTINO|ORDEN|INFORMACION|
             
+            Duda: lineas high y low?? o lineas tx y rx??
+            
 5.- Esquema Programa
             
 6.- Simulaciones.
