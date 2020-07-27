@@ -5,7 +5,10 @@
             MOD se utiliza cuando queremos intercambiar informacion "amplia" entre el maestro y los exclavos mientras que CAN se utiliza mas que nada paraenviar ordenes a los
             actuadores y valores de los sensores (por eso modbus se utiliza en procesos industriales y can se utiliza en automoción)
 4.- Esquema fisico
+            Trama: |START|DATOS|PARIDAD|FINAL|
+            DATOS: |DESTINO|ORDEN|INFORMACION|
 5.- Esquema Programa
+            
 6.- Simulaciones.
 7.- Pruebas y Demostración física
 8.- Conclusiones y Mejoras
