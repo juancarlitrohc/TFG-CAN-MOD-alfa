@@ -2,6 +2,8 @@
 2.- Objetivos
 3.- Diferencias CAN y MOD :
             Mod bus  se mueve solo en la capa de datos y utiliza el RS485 para el transporte de mensajes por el medio fisico
+            MOD se utiliza cuando queremos intercambiar informacion "amplia" entre el maestro y los exclavos mientras que CAN se utiliza mas que nada paraenviar ordenes a los
+            actuadores y valores de los sensores (por eso modbus se utiliza en procesos industriales y can se utiliza en automoción)
 4.- Esquema fisico
 5.- Esquema Programa
 6.- Simulaciones.
