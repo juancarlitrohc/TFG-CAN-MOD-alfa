@@ -10,7 +10,9 @@
             Trama: |START|DATOS|PARIDAD|FINAL|
             DATOS: |DESTINO|ORDEN|INFORMACION|
             
-            Duda: lineas high y low?? o lineas tx y rx?? por sinplificarlo un poco creo que es mejor con lineas TX y RX
+            lineas high y low para CANBUS
+            lineas tx y rx para MODBUS
+         
             
 5.- Esquema Programa
             
