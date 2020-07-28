@@ -4,6 +4,9 @@
             Mod bus  se mueve solo en la capa de datos y utiliza el RS485 (es de los mas comues pero se pueden usar otras interfaces) para el transporte de mensajes por el medio fisico
             MOD se utiliza cuando queremos intercambiar informacion "amplia" entre el maestro y los exclavos mientras que CAN se utiliza mas que nada paraenviar ordenes a los
             actuadores y valores de los sensores (por eso modbus se utiliza en procesos industriales y can se utiliza en automoción)
+            
+            CAN se codifica en NRZ (no retorno a cero) pag11: https://academica-e.unavarra.es/bitstream/handle/2454/19115/TFG%20Diseño%20de%20una%20Red%20Can%20bus%20-%20Alejandro%20García%20Osés.pdf?sequence=1&isAllowed=y
+            
 4.- Esquema fisico y bases comunicacion
             half-duplex
             Todos leen el mensaje pero solo lo analiza el destinatario
@@ -19,6 +22,10 @@
 6.- Simulaciones.
 7.- Pruebas y Demostración física
 8.- Conclusiones y Mejoras
+            Futuras mejoras (CAN y MOD): ya que tenemos las 2 primeras capas de la pila osi, se podria seguir escalando y construir una pequeña centralita de vehiculo o 
+            de una nave industrial y simular diferentes situaciones como mostrar datos de un proceso metalurgico en una pantalla (temperatura, grosor de plancha de aluminio, 
+            ventiladores...), dar informacion por un OBD (errores, nº km, consumo...)
+
 9.- Referencias WEB: 
       Implementación CAN LITE VHDL: https://github.com/bggardner/can-lite-vhdl/blob/master/src/CanLite.vhd
       TFG MOD BUS intel 8051: http://deeea.urv.cat/public/PROPOSTES/pub/pdf/561pub.pdf
