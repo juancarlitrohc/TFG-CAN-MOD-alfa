@@ -1,12 +1,14 @@
 1.- Introdución
 2.- Objetivos
 3.- Diferencias CAN y MOD :
-            Mod bus  se mueve solo en la capa de datos y utiliza el RS485 (es de los mas comues pero se pueden usar otras interfaces) para el transporte de mensajes por el medio fisico
+            Mod bus  se mueve solo en la capa de datos y utiliza el RS485 (es de los mas comues pero se pueden usar otras interfaces) para el transporte de mensajes 
+            por el medio fisico.
             MOD se utiliza cuando queremos intercambiar informacion "amplia" entre el maestro y los exclavos mientras que CAN se utiliza mas que nada paraenviar ordenes a los
-            actuadores y valores de los sensores (por eso modbus se utiliza en procesos industriales y can se utiliza en automoción)
+            actuadores y valores de los sensores (por eso modbus se utiliza en procesos industriales y can se utiliza en automoción).
             
             CAN se codifica en NRZ (no retorno a cero) pag11: https://academica-e.unavarra.es/bitstream/handle/2454/19115/TFG%20Diseño%20de%20una%20Red%20Can%20bus%20-%20Alejandro%20García%20Osés.pdf?sequence=1&isAllowed=y
-            MOD: lo voy a hacer modbus serie aunque tambien se puede hacer modbus tcp/ip y nada mas que nos tendriamos que ocupar de la capa de aplicacion (capa 7)
+            CAN: Cuando BOSH lo desarrollo lo hizo en una fpga
+            MOD: lo voy a hacer modbus serie aunque tambien se puede hacer modbus tcp/ip y nada mas que nos tendriamos que ocupar de la capa de aplicacion (capa 7).
             RS485: Velocidad de tranmision máxima Hasta 10 mbps
             
 4.- Esquema fisico y bases comunicacion
