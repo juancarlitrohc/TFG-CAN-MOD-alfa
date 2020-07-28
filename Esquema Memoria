@@ -10,7 +10,7 @@
             Trama: |START|DATOS|PARIDAD|FINAL|
             DATOS: |DESTINO|ORDEN|INFORMACION|
             
-            Duda: lineas high y low?? o lineas tx y rx??
+            Duda: lineas high y low?? o lineas tx y rx?? por sinplificarlo un poco creo que es mejor con lineas TX y RX
             
 5.- Esquema Programa
             
