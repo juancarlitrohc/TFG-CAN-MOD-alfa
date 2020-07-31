@@ -7,7 +7,7 @@
             actuadores y valores de los sensores (por eso modbus se utiliza en procesos industriales y can se utiliza en automoción).
             
             CAN se codifica en NRZ (no retorno a cero) pag11: https://academica-e.unavarra.es/bitstream/handle/2454/19115/TFG%20Diseño%20de%20una%20Red%20Can%20bus%20-%20Alejandro%20García%20Osés.pdf?sequence=1&isAllowed=y
-            CAN: Cuando BOSH lo desarrollo lo hizo en una fpga
+            CAN: Cuando BOSH lo desarrolló lo hizo en una fpga
             MOD: lo voy a hacer modbus serie aunque tambien se puede hacer modbus tcp/ip y nada mas que nos tendriamos que ocupar de la capa de aplicacion (capa 7).
             RS485: Velocidad de tranmision máxima Hasta 10 mbps
             
