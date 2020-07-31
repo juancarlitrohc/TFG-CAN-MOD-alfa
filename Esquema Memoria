@@ -31,7 +31,7 @@
             ventiladores...), dar informacion por un OBD (errores, nº km, consumo...)
 
 9.- Referencias WEB: 
-      Implementación CAN LITE VHDL: https://github.com/bggardner/can-lite-vhdl/blob/master/src/CanLite.vhd
+      Implementación CAN LITE VHDL: https://github.com/bggardner/can-lite-vhdl
       TFG MOD BUS intel 8051: http://deeea.urv.cat/public/PROPOSTES/pub/pdf/561pub.pdf
       Implementacion MOD BUS VHDL:  https://github.com/freecores/modbus/tree/master/enlace
       TFG CAN BUS Arduino:  https://academica-e.unavarra.es/bitstream/handle/2454/19115/TFG%20Diseño%20de%20una%20Red%20Can%20bus%20-%20Alejandro%20García%20Osés.pdf?sequence=1&isAllowed=y
