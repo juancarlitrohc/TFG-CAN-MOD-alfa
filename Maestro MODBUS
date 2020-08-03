@@ -6,3 +6,25 @@
 -- SolicitarDatos(Esclavo, Sensor)
 -- EnviarOrden(Esclavo, Actuador) 
 -- ProcesarError(ErrorID)
+
+
+library ieee;
+ieee.std_logic_1164.all;
+
+
+
+entity master is
+
+
+end entity master;
+  
+  
+
+architecture behavioral of master is
+  
+  
+  begin
+  
+  
+  
+end architecture behavioral;
