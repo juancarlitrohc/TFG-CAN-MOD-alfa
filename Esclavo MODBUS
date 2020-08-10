@@ -1,8 +1,0 @@
--- Procesos que creo que tiene que tener el ESCLAVO (Basándome en la pagina 30 de este documento http://bibing.us.es/proyectos/abreproy/91400/fichero/Memoria+TFG+JJRB.pdf )
-
--- Funciones:
--- EscuchandoCanal()
--- ComprobarTrama()
--- ProcesarErrores()
--- ProcesarPeticion()
--- ResponderAlMaestro()
