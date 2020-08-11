@@ -1,15 +1,20 @@
 -- Procesos que creo que tiene que tener el ESCLAVO (Basándome en la pagina 30 de este documento http://bibing.us.es/proyectos/abreproy/91400/fichero/Memoria+TFG+JJRB.pdf )
 
-
+CAPA DE APLICACION:
+   Funciones lectura sensores.
+   Funciones accionamiento actuadores
 
 CAPA ENLACE DATOS:
    Iniciación, terminación e identificación.  V
-   Delimitación de trama y transparencia.     V (LO DE TRANSPARENCIA NO)
+   Delimitación de trama y transparencia.     V (LO DE TRANSPARENCIA NO por ejem cada 5 unos seguidos iguales metemos un cero y viceversa)
    Control de errores.                        X
    Sincronización de octeto y carácter        /
    Control de flujo.                          V
    Recuperación de fallos.                    X
    Gestión y coordinación de la comunicación. V
+   
+CAPA FISICA:
+   Nos apollamos en RS485
 
 
 
