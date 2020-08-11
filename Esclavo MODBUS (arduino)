@@ -1,8 +1,5 @@
 -- Procesos que creo que tiene que tener el ESCLAVO (Basándome en la pagina 30 de este documento http://bibing.us.es/proyectos/abreproy/91400/fichero/Memoria+TFG+JJRB.pdf )
 
-CAPA DE APLICACION: (esclavos)
-   Funciones lectura sensores.
-   Funciones accionamiento actuadores.
 
 CAPA ENLACE DATOS:
    Iniciación, terminación e identificación.  V
