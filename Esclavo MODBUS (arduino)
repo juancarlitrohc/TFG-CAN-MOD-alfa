@@ -1,10 +1,12 @@
 -- Procesos que creo que tiene que tener el ESCLAVO (Basándome en la pagina 30 de este documento http://bibing.us.es/proyectos/abreproy/91400/fichero/Memoria+TFG+JJRB.pdf )
 
 -- Funciones:
--- EscuchandoCanal()    V
--- ComprobarTrama()     V
--- ProcesarPeticion()   V
--- ResponderAlMaestro() V
+-- EscuchandoCanal    V
+-- ComprobarTrama     V
+-- Comprobar errores  X
+-- Procesar errores   X
+-- ProcesarPeticion   V
+-- ResponderAlMaestro V
 
 
 --Hay que modificar el codigo
