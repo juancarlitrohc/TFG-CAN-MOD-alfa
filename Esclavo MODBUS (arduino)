@@ -1,12 +1,16 @@
 -- Procesos que creo que tiene que tener el ESCLAVO (Basándome en la pagina 30 de este documento http://bibing.us.es/proyectos/abreproy/91400/fichero/Memoria+TFG+JJRB.pdf )
 
--- Funciones:
--- EscuchandoCanal    V
--- ComprobarTrama     V
--- Comprobar errores  X
--- Procesar errores   X
--- ProcesarPeticion   V
--- ResponderAlMaestro V
+
+
+CAPA ENLACE DATOS:
+   Iniciación, terminación e identificación.  V
+   Delimitación de trama y transparencia.     V
+   Control de errores.                        X
+   Sincronización de octeto y carácter        /
+   Control de flujo.                          V
+   Recuperación de fallos.                    X
+   Gestión y coordinación de la comunicación. V
+
 
 
 --Hay que modificar el codigo
