@@ -4,7 +4,7 @@
 
 CAPA ENLACE DATOS:
    Iniciación, terminación e identificación.  V
-   Delimitación de trama y transparencia.     V
+   Delimitación de trama y transparencia.     V (LO DE TRANSPARENCIA NO)
    Control de errores.                        X
    Sincronización de octeto y carácter        /
    Control de flujo.                          V
