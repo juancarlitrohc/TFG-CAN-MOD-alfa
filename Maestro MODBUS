@@ -1,3 +1,10 @@
+
+--MUY IMPORTANTE: Warning: The Arty A7 is not compatible with shields that output 5V digital or analog signals. Driving pins on the shield connector above 3.4V may cause damage to the FPGA.
+PAGINA 5: https://reference.digilentinc.com/reference/programmable-logic/arty-a7/reference-manual
+
+
+
+
 -- Procesos que creo que tiene que tener el maestro (Basándome en la pagina 29 de este documento http://bibing.us.es/proyectos/abreproy/91400/fichero/Memoria+TFG+JJRB.pdf )
 
 -- Funciones:
