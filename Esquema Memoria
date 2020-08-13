@@ -19,6 +19,11 @@
             
             lineas high y low para CANBUS
             lineas tx y rx para MODBUS
+            
+            
+            
+            Conectar el teclado: https://www.bing.com/images/search?view=detailV2&ccid=%2fUeRZSBR&id=9AD014F6958204A2B2BFFAA4FAAAF72882DD2944&thid=OIP._UeRZSBRxAkvgUc3BUhOSwHaIw&mediaurl=http%3a%2f%2fblog.filipeflop.com%2fwp-content%2fuploads%2f2014%2f07%2fCircuito-teclado-4x42.png&exph=1700&expw=1438&q=teclado+con+arduino&simid=608016147641667512&ck=73B7797A656EA4073867DE55C8E43D30&selectedIndex=0&FORM=IRPRST&ajaxhist=0
+            
          
             
 5.- Esquema Programa
