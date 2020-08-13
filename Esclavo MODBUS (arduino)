@@ -44,7 +44,7 @@ void loop()
             char funcion=Serial.read(); //leemos el carácter de función
           
             //---Si el carácter de función es una S entonces la trama es para mover el motor----------- 
-            if(funcion=='S') 
+            if(funcion=='B') 
              {
                  int angulo=Serial.parseInt(); //recibimos el ángulo
                  if(Serial.read()=='F') //Si el fin de trama es el correcto
@@ -56,7 +56,7 @@ void loop()
                  }
              }
              //---Si el carácter de función  es L entonces el maestro está solicitando una lectura del sensor---
-             else if(funcion=='L')
+             else if(funcion=='A')
              {
                 if(Serial.read()=='F') //Si el fin de trama es el correcto
                  {
