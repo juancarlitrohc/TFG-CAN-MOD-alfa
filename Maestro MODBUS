@@ -6,6 +6,7 @@ PAGINA 5: https://reference.digilentinc.com/reference/programmable-logic/arty-a7
 
 
 -- Procesos que creo que tiene que tener el maestro (Basándome en la pagina 29 de este documento http://bibing.us.es/proyectos/abreproy/91400/fichero/Memoria+TFG+JJRB.pdf )
+--Usare una maquina de estados de Moore
 
 -- Funciones:
 -- SendBroadcast()
