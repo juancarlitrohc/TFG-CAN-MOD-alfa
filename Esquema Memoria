@@ -50,6 +50,9 @@
       RS485 Arduino: en este no utilizan resistencia de 120ohm: https://arduinoinfo.mywikis.net/wiki/SoftwareSerialRS485Example
                      sin embargo en este si: https://giltesa.com/2016/03/04/test-de-comunicacion-entre-arduinos-con-estandar-rs485-mediante-modulos-max485
                      varias cositas: http://arduinoinfo.mywikis.net/wiki/RS485-Modules
+                     
+                     
+      constraints fpga arty a7-35
       
 
 10.- Terminos:
