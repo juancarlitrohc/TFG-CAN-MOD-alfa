@@ -1,4 +1,40 @@
-Serial.begin(9600);  
+#define TRIGGER 6
+#define ECHO 7
+
+#define BLUE 9
+#define GREEN 10
+#define RED 11
+
+const int EnTxPin2 =  2;  // HIGH:TX y LOW:RX
+const int midireccion = 101; //Direccion del esclavo
+const int maestro = 100;
+
+int DISTANCIA;
+bool EsperandoValor = false;
+int COLOR;
+
+char inChar;
+
+enum EstadosLectura
+{
+  InicioLeerTrama,
+  ComprobarDireccion,
+  LeerOrden,
+  LeerCampoValor,
+  FinLeerTrama,
+};
+
+enum Ordenes
+{
+  LedRGB,
+  ValorUltrasonido,
+};
+
+EstadosLectura EstadoActual;
+
+void setup() 
+{
+  Serial.begin(9600);  
   Serial.setTimeout(100);  //establecemos un tiempo de espera de 100ms
   
   pinMode(EnTxPin2, OUTPUT);
@@ -25,7 +61,11 @@ Serial.begin(9600);
 //Con Loop podremos ver el mensaje completo
 void loop() 
 { 
-  
+  if (inChar == 'F')
+  {
+    Serial.println(DISTANCIA);
+    inChar='t';
+  }
 }
 
 void FInicioLeerTrama()
@@ -66,9 +106,6 @@ void Ultrasonido()
   duration = pulseIn(ECHO,HIGH);
   distance = duration / 2 / 7.6;
   DISTANCIA = distance;
-  Serial.println(DISTANCIA);
-
-  
 }
 
 void LED()
@@ -149,23 +186,28 @@ void serialEvent()
     switch(EstadoActual)
     {
       case EstadosLectura::InicioLeerTrama : 
-                  Serial.println(inChar);
+                  Serial.print(inChar);
+                  Serial.print(" ");
                   FInicioLeerTrama();
             break;
       case EstadosLectura::ComprobarDireccion : 
-                  Serial.println((int)inChar);
+                  Serial.print((int)inChar);
+                  Serial.print(" ");
                   FComprobarDireccion();
             break;
       case EstadosLectura::LeerOrden : 
-                  Serial.println(inChar);
+                  Serial.print(inChar);
+                  Serial.print(" ");
                   FLeerOrden();
             break;
       case EstadosLectura::LeerCampoValor : 
-                  Serial.println((int)inChar);  
+                  Serial.print((int)inChar); 
+                  Serial.print(" "); 
                   FLeerCampoValor();
             break;
       case EstadosLectura::FinLeerTrama :
-                  Serial.println((char)inChar);
+                  Serial.print((char)inChar);
+                  Serial.println(" ");
                   FFinLeerTrama();
             break;
     }
