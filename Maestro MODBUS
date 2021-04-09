@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.STD_LOGIC_ARITH.ALL;
-USE IEEE.numeric_std.ALL;
+-- USE IEEE.numeric_std.ALL;
 
 
 entity Master_MOD is
@@ -21,8 +21,8 @@ architecture Behavioral of Master_MOD is
 
   signal media : std_logic; 
   
-  signal color : std_logic_vector (3 downto 0);
-  signal COLORInt : integer;
+  signal color : std_logic_vector (0 to 2);
+  signal COLORInt : integer range 0 to 7;
 
   signal SignalValor : std_logic;
 
@@ -95,7 +95,8 @@ begin
  process(clk_div,reset)
  begin
  color <= SwitchR & SwitchG & SwitchB;
- COLORInt <= conv_integer(color);
+ COLORInt <= conv_integer(unsigned(color));
+ --COLORInt <= SwitchR & SwitchG & SwitchB;
  SignalValor <= Switch0;
  DERE2<='1';
   if (reset='1') then
