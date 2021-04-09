@@ -1,79 +1,211 @@
--- Procesos que creo que tiene que tener el ESCLAVO (Basándome en la pagina 30 de este documento http://bibing.us.es/proyectos/abreproy/91400/fichero/Memoria+TFG+JJRB.pdf )
+#define TRIGGER 6
+#define ECHO 7
 
+#define BLUE 11
+#define GREEN 10
+#define RED 9
 
-CAPA ENLACE DATOS:
-   Iniciación, terminación e identificación.  V
-   Delimitación de trama y transparencia.     V (LO DE TRANSPARENCIA NO por ejem cada 5 unos seguidos iguales metemos un cero y viceversa)
-   Control de errores.                        X
-   Sincronización de octeto y carácter        /
-   Control de flujo.                          V
-   Recuperación de fallos.                    X
-   Gestión y coordinación de la comunicación. V
-   
-CAPA FISICA:
-   Nos apollamos en RS485
+const int EnTxPin2 =  2;  // HIGH:TX y LOW:RX
+const int midireccion = 101; //Direccion del esclavo
+const int maestro = 100;
 
+int DISTANCIA;
+bool EsperandoValor = false;
+int COLOR;
 
+char inChar;
+String entradaSerial ="";
 
---Hay que modificar el codigo
+enum EstadosLectura
+{
+  InicioLeerTrama,
+  ComprobarDireccion,
+  LeerOrden,
+  LeerCampoValor,
+  FinLeerTrama,
+};
 
+enum Ordenes
+{
+  LedRGB,
+  ValorUltrasonido,
+};
 
-#include <Servo.h> 
- 
-Servo myservo;  // creamos el objeto servo 
-const int EnTxPin =  2;  // HIGH:TX y LOW:RX
-const int mydireccion =101; //Direccion del esclavo
+EstadosLectura EstadoActual;
+
 void setup() 
-{ 
+{
   Serial.begin(9600);  
   Serial.setTimeout(100);  //establecemos un tiempo de espera de 100ms
-  myservo.attach(9);  // asignamos el pin 9 para el servo.
-  pinMode(EnTxPin, OUTPUT);
-  digitalWrite(EnTxPin, LOW); //RS485 como receptor
-} 
- 
-void loop() 
-{ 
-  if(Serial.available())
-  {
-    if(Serial.read()=='I') //Si recibimos el inicio de trama
-    {
-        int direccion=Serial.parseInt(); //recibimos la direccion 
-        if(direccion==mydireccion) //Si direccion es la nuestra
-        {
-            char funcion=Serial.read(); //leemos el carácter de función
-          
-            //---Si el carácter de función es una S entonces la trama es para mover el motor----------- 
-            if(funcion=='B') 
-             {
-                 int angulo=Serial.parseInt(); //recibimos el ángulo
-                 if(Serial.read()=='F') //Si el fin de trama es el correcto
-                 {
-                   if(angulo<=180) //verificamos que sea un valor en el rango del servo
-                    {
-                      myservo.write(angulo); //movemos el servomotor al ángulo correspondiente.
-                    }   
-                 }
-             }
-             //---Si el carácter de función  es L entonces el maestro está solicitando una lectura del sensor---
-             else if(funcion=='A')
-             {
-                if(Serial.read()=='F') //Si el fin de trama es el correcto
-                 {
-                   int lectura = analogRead(0); //realizamos  la lectura del sensor     
-                   digitalWrite(EnTxPin, HIGH); //rs485 como transmisor
-                    Serial.print("i"); //inicio de trama  
-                   Serial.print(mydireccion); //direccion   
-                   Serial.print(",");       
-                   Serial.print(lectura); //valor del sensor
-                   Serial.print("f"); //fin de trama  
-                   Serial.flush(); //Esperamos hasta que se envíen los datos
-                   digitalWrite(EnTxPin, LOW); //RS485 como receptor             
-                 }
-             }
-        }
-    }
-  }
-  delay(10);
+  
+  pinMode(EnTxPin2, OUTPUT);
+  digitalWrite(EnTxPin2, LOW); //RS485 como receptor
+
+  //ultrasonido
+  pinMode(ECHO, INPUT);
+  pinMode(TRIGGER, OUTPUT);
+  digitalWrite(TRIGGER, LOW);
+
+  //LED
+  pinMode(RED, OUTPUT);
+  pinMode(GREEN, OUTPUT);
+  pinMode(BLUE, OUTPUT);
+
+  analogWrite(RED, 255);
+  analogWrite(GREEN, 255);
+  analogWrite(BLUE, 0);
+
+  EstadoActual=InicioLeerTrama;
 } 
 
+
+//Con Loop podremos ver el mensaje completo
+void loop() 
+{ 
+  
+}
+
+void FInicioLeerTrama()
+{
+  if(inChar == 'I') //Inicio de trama correcto
+  {
+    EstadoActual = ComprobarDireccion;
+  }
+}
+
+void FComprobarDireccion()
+{
+  if((int)inChar == midireccion)//Si el mensaje es para mi
+  {
+    EstadoActual = LeerOrden;
+  }
+  else EstadoActual = InicioLeerTrama;
+}
+
+
+void FLeerOrden()
+{
+  switch(inChar)
+  {
+    case 'U' : Ultrasonido(); break;
+    case 'L' : LED(); 
+          break;
+  }
+  EstadoActual = LeerCampoValor;
+}
+
+void Ultrasonido()
+{
+  int distance, duration;
+  digitalWrite(TRIGGER, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGGER, LOW);
+  duration = pulseIn(ECHO,HIGH);
+  distance = duration / 2 / 7.6;
+  DISTANCIA = distance;
+  Serial.println(DISTANCIA);
+
+  
+}
+
+void LED()
+{
+  //tenemos que leer el siguiente valor de la trama
+  EsperandoValor = true;
+}
+
+void FLeerCampoValor()
+{
+  if(EsperandoValor == true)
+  {
+    COLOR = (int)inChar;
+    CambiarColorLED();
+    EsperandoValor=false;
+  }
+  EstadoActual = FinLeerTrama;
+}
+
+void CambiarColorLED()
+{
+  switch(COLOR)
+  {
+    case 000 : analogWrite(RED, 0);
+               analogWrite(GREEN, 0);
+               analogWrite(BLUE, 0);
+               break;
+    case 001 : analogWrite(RED, 255);
+               analogWrite(GREEN, 0);
+               analogWrite(BLUE, 0);
+               break;
+    case 010 : analogWrite(RED, 0);
+               analogWrite(GREEN, 255);
+               analogWrite(BLUE, 0);
+               break;
+    case 011 : analogWrite(RED, 255);
+               analogWrite(GREEN, 255);
+               analogWrite(BLUE, 0);
+               break;
+    case 100 : analogWrite(RED, 0);
+               analogWrite(GREEN, 0);
+               analogWrite(BLUE, 255);
+               break;
+    case 101 : analogWrite(RED, 255);
+               analogWrite(GREEN, 0);
+               analogWrite(BLUE, 255);
+               break;
+    case 110 : analogWrite(RED, 0);
+               analogWrite(GREEN, 255);
+               analogWrite(BLUE, 255);
+               break;
+    case 111 : analogWrite(RED, 255);
+               analogWrite(GREEN, 255);
+               analogWrite(BLUE, 255);
+               break;
+  }
+}
+
+void FFinLeerTrama()
+{
+  if(inChar != 'F')
+  {
+    Serial.println("Fin Trama erroneo");
+  }
+   EstadoActual = InicioLeerTrama;
+}
+
+
+
+//Con esta funcion podemos comprobar cada 8bits
+void serialEvent()
+{
+  while(Serial.available())
+  {
+    inChar = (char)Serial.read();
+     
+       
+    switch(EstadoActual)
+    {
+      case EstadosLectura::InicioLeerTrama : 
+                  Serial.println(inChar);
+                  FInicioLeerTrama();
+            break;
+      case EstadosLectura::ComprobarDireccion : 
+                  Serial.println((int)inChar);
+                  FComprobarDireccion();
+            break;
+      case EstadosLectura::LeerOrden : 
+                  Serial.println(inChar);
+                  FLeerOrden();
+            break;
+      case EstadosLectura::LeerCampoValor : 
+                  Serial.println((int)inChar);
+                  FLeerCampoValor();
+            break;
+      case EstadosLectura::FinLeerTrama :
+                  Serial.println((char)inChar);
+                  FFinLeerTrama();
+            break;
+    }
+    
+  }
+}
