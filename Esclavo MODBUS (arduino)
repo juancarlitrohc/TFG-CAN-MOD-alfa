@@ -1,41 +1,4 @@
-#define TRIGGER 6
-#define ECHO 7
-
-#define BLUE 11
-#define GREEN 10
-#define RED 9
-
-const int EnTxPin2 =  2;  // HIGH:TX y LOW:RX
-const int midireccion = 101; //Direccion del esclavo
-const int maestro = 100;
-
-int DISTANCIA;
-bool EsperandoValor = false;
-int COLOR;
-
-char inChar;
-String entradaSerial ="";
-
-enum EstadosLectura
-{
-  InicioLeerTrama,
-  ComprobarDireccion,
-  LeerOrden,
-  LeerCampoValor,
-  FinLeerTrama,
-};
-
-enum Ordenes
-{
-  LedRGB,
-  ValorUltrasonido,
-};
-
-EstadosLectura EstadoActual;
-
-void setup() 
-{
-  Serial.begin(9600);  
+Serial.begin(9600);  
   Serial.setTimeout(100);  //establecemos un tiempo de espera de 100ms
   
   pinMode(EnTxPin2, OUTPUT);
@@ -51,8 +14,8 @@ void setup()
   pinMode(GREEN, OUTPUT);
   pinMode(BLUE, OUTPUT);
 
-  analogWrite(RED, 255);
-  analogWrite(GREEN, 255);
+  analogWrite(RED, 0);
+  analogWrite(GREEN, 0);
   analogWrite(BLUE, 0);
 
   EstadoActual=InicioLeerTrama;
@@ -129,37 +92,37 @@ void CambiarColorLED()
 {
   switch(COLOR)
   {
-    case 000 : analogWrite(RED, 0);
+    case 0 : analogWrite(BLUE, 0);
                analogWrite(GREEN, 0);
-               analogWrite(BLUE, 0);
+               analogWrite(RED, 0);
                break;
-    case 001 : analogWrite(RED, 255);
+    case 1 : analogWrite(BLUE, 255);
                analogWrite(GREEN, 0);
-               analogWrite(BLUE, 0);
+               analogWrite(RED, 0);
                break;
-    case 010 : analogWrite(RED, 0);
+    case 2 : analogWrite(BLUE, 0);
                analogWrite(GREEN, 255);
-               analogWrite(BLUE, 0);
+               analogWrite(RED, 0);
                break;
-    case 011 : analogWrite(RED, 255);
+    case 3 : analogWrite(BLUE, 255);
                analogWrite(GREEN, 255);
-               analogWrite(BLUE, 0);
+               analogWrite(RED, 0);
                break;
-    case 100 : analogWrite(RED, 0);
+    case 4 : analogWrite(BLUE, 0);
                analogWrite(GREEN, 0);
-               analogWrite(BLUE, 255);
+               analogWrite(RED, 255);
                break;
-    case 101 : analogWrite(RED, 255);
+    case 5 : analogWrite(BLUE, 255);
                analogWrite(GREEN, 0);
-               analogWrite(BLUE, 255);
+               analogWrite(RED, 255);
                break;
-    case 110 : analogWrite(RED, 0);
+    case 6 : analogWrite(BLUE, 0);
                analogWrite(GREEN, 255);
-               analogWrite(BLUE, 255);
+               analogWrite(RED, 255);
                break;
-    case 111 : analogWrite(RED, 255);
+    case 7 : analogWrite(BLUE, 255);
                analogWrite(GREEN, 255);
-               analogWrite(BLUE, 255);
+               analogWrite(RED, 255);
                break;
   }
 }
@@ -198,7 +161,7 @@ void serialEvent()
                   FLeerOrden();
             break;
       case EstadosLectura::LeerCampoValor : 
-                  Serial.println((int)inChar);
+                  Serial.println((int)inChar);  
                   FLeerCampoValor();
             break;
       case EstadosLectura::FinLeerTrama :
