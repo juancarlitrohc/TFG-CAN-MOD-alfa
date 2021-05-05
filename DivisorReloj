@@ -1,0 +1,39 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+
+entity DivisorReloj is
+    Port ( clk : in STD_LOGIC;
+           reset : in STD_LOGIC;
+           clk_div : out STD_LOGIC);
+end DivisorReloj;
+
+architecture Behavioral of DivisorReloj is
+  signal clk_divtemp : std_logic;
+  signal clk_counter : integer range 0 to 5208;
+
+begin
+
+-----------------------------------------------------
+-- Divisor de reloj de 100Mhz a 9600bps
+-----------------------------------------------------
+
+process(clk,reset)
+begin
+  if (reset='1') then
+    clk_divtemp <='0';
+  elsif(rising_edge(clk)) then
+    if(clk_counter = 5208) then    
+      clk_divtemp<=not(clk_divtemp);
+      clk_counter <= 0;
+    else
+      clk_counter <= clk_counter +1;
+    end if;
+    
+  end if;  
+ end process;    
+ 
+ clk_div <= clk_divtemp;
+
+
+end Behavioral;
