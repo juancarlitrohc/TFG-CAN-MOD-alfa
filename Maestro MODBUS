@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.STD_LOGIC_ARITH.ALL;
--- USE IEEE.numeric_std.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 
 entity Master_MOD is
@@ -19,6 +19,12 @@ end Master_MOD;
 
 architecture Behavioral of Master_MOD is
 
+    component DivisorReloj is
+    Port ( clk : in STD_LOGIC;
+           reset : in STD_LOGIC;
+           clk_div : out STD_LOGIC);
+    end component;
+    
   signal media : std_logic; 
   
   signal color : std_logic_vector (0 to 2);
@@ -27,7 +33,6 @@ architecture Behavioral of Master_MOD is
   signal SignalValor : std_logic;
 
   signal clk_div : std_logic;
-  signal clk_counter : integer range 0 to 5208;
   
   signal tx_bit : integer range 0 to 7;
   
@@ -69,24 +74,12 @@ begin
 end process;
 
 
------------------------------------------------------
--- Divisor de reloj de 100Mhz a 9600bps
------------------------------------------------------
-
-process(clk,reset)
-begin
-  if (reset='1') then
-    clk_div <='0';
-  elsif(rising_edge(clk)) then
-    if(clk_counter = 5208) then    
-      clk_div<=not(clk_div);
-      clk_counter <= 0;
-    else
-      clk_counter <= clk_counter +1;
-    end if;
-    
-  end if;  
- end process;    
+divisor:DivisorReloj port map 
+(
+    clk=>clk,
+    reset=> reset,
+    clk_div=>clk_div
+);
   
 -----------------------------------------------------
 -- Maquina de estados que lee la ROM y forma la trama
