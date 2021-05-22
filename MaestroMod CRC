@@ -1,0 +1,257 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+
+entity Master_MOD is
+    Port ( clk : in STD_LOGIC;
+           reset : in STD_LOGIC;
+           Switch0 : in STD_LOGIC;
+           SwitchB : in STD_LOGIC;
+           SwitchG : in STD_LOGIC;
+           SwitchR : in STD_LOGIC;
+           tx: out STD_LOGIC;
+           DERE2 : out STD_LOGIC;
+           led_o : out std_logic;
+           ledsw : out std_logic;
+           LEDCRC16L : out std_logic;
+           LEDCRC16H : out std_logic);
+end Master_MOD;
+
+architecture Behavioral of Master_MOD is
+        
+    
+    component DivisorReloj is
+    Port ( clk : in STD_LOGIC;
+           reset : in STD_LOGIC;
+           clk_div : out STD_LOGIC);
+    end component;
+    
+  signal media : std_logic; 
+  
+  signal color : std_logic_vector (0 to 2);
+  signal COLORInt : integer range 0 to 7;
+
+  signal SignalValor : std_logic;
+
+  signal clk_div : std_logic;
+  
+  signal tx_bit : integer range 0 to 7;
+  
+  type tx_state_t is (IDLE, START, DATA, STOP);
+  signal tx_state : tx_state_t; 
+  
+  signal char_tx : std_logic_vector(7 downto 0);
+  signal char_pointer : integer range 0 to 6;
+  
+  signal wait_50 : integer range 0 to 50;
+  
+  signal CRC16H : std_logic_vector(7 downto 0);
+  signal CRC16L : std_logic_vector(7 downto 0);
+  signal CRC16FULL : std_logic_vector (15 downto 0);
+  signal carryH : std_logic;
+  signal carryL : std_logic;
+  SIGNAL CONTADOR : INTEGER RANGE 0 TO 10;
+  
+  signal NEWCRC16L : std_logic_vector(7 downto 0);
+  
+  signal activar_crc1    : std_logic;
+  signal activar_crc2   : std_logic;
+  signal activar_crc3   : std_logic;
+  
+begin
+
+activar_crc1 <= '1' when tx_state=STOP else '0';
+activar_crc3 <= activar_crc1 and not activar_crc2;
+-----------------------------------------------------
+-- Memoria ROM que almacena la trama a enviar
+-----------------------------------------------------
+process(clk, reset)
+
+variable operacion: std_logic ;
+variable tmp    : std_logic_vector(15 downto 0);
+
+begin
+  if (reset = '1') then
+    CRC16FULL <= "1111111111111111";
+    --char_tx <= "10000010";   --82 en hex
+    char_tx <= conv_std_logic_vector(character'pos('I'),8);  -- hex 49
+    carryL <= '1';
+    contador <= 0;
+    activar_crc2 <= '0';
+  elsif (clk='1' and clk'event) then
+  activar_crc2 <= activar_crc1;
+  
+  if (tx_state = STOP) then
+  case(char_pointer) is
+     when 0 =>
+       --char_tx <= "10000010"; --INICIO TRAMA
+       char_tx <= conv_std_logic_vector(character'pos('I'),8);
+       if (activar_crc3 = '1') then
+        contador <= 0;
+       elsif (contador = 0) then
+            CRC16FULL(7 downto 0) <= char_tx xor CRC16FULL(7 downto 0);
+            contador <= contador+1;  
+       elsif (contador = 9) then
+            CRC16L <= CRC16FULL(7 DOWNTO 0);
+            CRC16H <= CRC16FULL(15 DOWNTO 8);
+--            contador <= 0;
+      else
+            tmp := '0' & CRC16FULL(15 DOWNTO 1);
+            if CRC16FULL(0) = '1' then
+                 CRC16FULL <= tmp XOR "1010000000000001";
+            else
+                 CRC16FULL <= tmp;
+            end if;
+            contador <= contador+1; 
+        end if;
+      
+     when 1 => 
+       char_tx <= conv_std_logic_vector(00000101, 8); --identificador del esclavo --65 en hex
+        if (activar_crc3 = '1') then
+        contador <= 0;
+       elsif (contador = 0) then
+            CRC16FULL(7 downto 0) <= char_tx xor CRC16FULL(7 downto 0);
+            contador <= contador+1;  
+       elsif (contador = 9) then
+            CRC16L <= CRC16FULL(7 DOWNTO 0);
+            CRC16H <= CRC16FULL(15 DOWNTO 8);
+--            contador <= 0;
+      else
+            tmp := '0' & CRC16FULL(15 DOWNTO 1);
+            if CRC16FULL(0) = '1' then
+                 CRC16FULL <= tmp XOR "1010000000000001";
+            else
+                 CRC16FULL <= tmp;
+            end if;
+            contador <= contador+1; 
+        end if;
+      
+     when 2 =>
+        if (SignalValor = '0') then                                 --ORDEN
+            char_tx <= conv_std_logic_vector(character'pos('U'),8);   -- decimal 85  hex 55
+        else 
+            char_tx <= conv_std_logic_vector(character'pos('L'),8);  -- 76 decimal   hex 4C
+        end if;
+            if (activar_crc3 = '1') then
+                contador <= 0;
+               elsif (contador = 0) then
+                    CRC16FULL(7 downto 0) <= char_tx xor CRC16FULL(7 downto 0);
+                    contador <= contador+1;  
+               elsif (contador = 9) then
+                    CRC16L <= CRC16FULL(7 DOWNTO 0);
+                    CRC16H <= CRC16FULL(15 DOWNTO 8);
+        --            contador <= 0;
+              else
+                    tmp := '0' & CRC16FULL(15 DOWNTO 1);
+                    if CRC16FULL(0) = '1' then
+                         CRC16FULL <= tmp XOR "1010000000000001";
+                    else
+                         CRC16FULL <= tmp;
+                    end if;
+                    contador <= contador+1; 
+                end if;
+        
+        
+     when 3 =>
+       char_tx <= "00000" & COLOR;      --valor del led     todos arriba hex 07
+       if (activar_crc3 = '1') then
+               contador <= 0;
+              elsif (contador = 0) then
+                   CRC16FULL(7 downto 0) <= char_tx xor CRC16FULL(7 downto 0);
+                   contador <= contador+1;  
+              elsif (contador = 9) then
+                   CRC16L <= CRC16FULL(7 DOWNTO 0);
+                   CRC16H <= CRC16FULL(15 DOWNTO 8);
+       --            contador <= 0;
+             else
+                   tmp := '0' & CRC16FULL(15 DOWNTO 1);
+                   if CRC16FULL(0) = '1' then
+                        CRC16FULL <= tmp XOR "1010000000000001";
+                   else
+                        CRC16FULL <= tmp;
+                   end if;
+                   contador <= contador+1; 
+               end if;
+       
+     when 4 => 
+        char_tx <= crc16l;
+     
+     when 5 =>
+         char_tx <= CRC16H;
+       
+     when 6 =>
+         char_tx <= conv_std_logic_vector(character'pos('F'),8);
+                  
+     when others =>
+       char_tx <= (others=>'0');
+  end case;       
+ end if;
+ end if;
+end process;
+
+
+divisor:DivisorReloj port map 
+(
+    clk=>clk,
+    reset=> reset,
+    clk_div=>clk_div
+);
+  
+-----------------------------------------------------
+-- Maquina de estados que lee la ROM y forma la trama
+-----------------------------------------------------
+
+ process(clk_div,reset)
+ begin
+ color <= SwitchR & SwitchG & SwitchB;
+ --COLORInt <= conv_integer(unsigned(color));
+ --COLORInt <= SwitchR & SwitchG & SwitchB;
+ SignalValor <= Switch0;
+ DERE2<='1';
+  if (reset='1') then
+    tx <= '1';
+    tx_state <= IDLE;
+    tx_bit <= 0;
+    led_o <= '0';
+    char_pointer <= 0;
+    wait_50 <= 0;
+    
+  elsif(rising_edge(clk_div)) then
+    case(tx_state) is
+      when IDLE =>  --reposo
+        ledsw<='1';
+        tx <= '1';
+        tx_bit <= 0;
+        if(wait_50=50) then
+          tx_state <= START;
+          wait_50 <= 0;
+        else
+          wait_50 <= wait_50 +1;
+        end if;	 
+      when START =>     --comienzo
+      ledsw<='0';
+        tx <= '0';
+        tx_state <= DATA;
+      when DATA =>      --transmitir bit a bit
+        
+        tx <= char_tx(tx_bit);
+        if(tx_bit=7) then
+          tx_state <= STOP;
+        else
+          tx_bit <= tx_bit+1;
+        end if;
+      when STOP =>      --PARAR
+      ledsw<='0';
+        tx <= '1';
+        if(char_pointer=6) then                         --cambiar el tamaño de la trama
+          led_o <= '1';
+        else  
+          tx_state <= IDLE;
+          char_pointer <= char_pointer+1;
+        end if;          
+     end case;
+   end if;
+end process;     
+end Behavioral;
