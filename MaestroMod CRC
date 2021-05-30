@@ -11,6 +11,7 @@ entity Master_MOD is
            SwitchB : in STD_LOGIC;
            SwitchG : in STD_LOGIC;
            SwitchR : in STD_LOGIC;
+           SEND : in STD_LOGIC;
            tx: out STD_LOGIC;
            DERE2 : out STD_LOGIC;
            led_o : out std_logic;
@@ -61,6 +62,8 @@ architecture Behavioral of Master_MOD is
   signal activar_crc3   : std_logic;
   
   signal chartx_update : std_logic;
+  
+  signal signalsend : std_logic;
   
   
 begin
@@ -216,8 +219,9 @@ divisor:DivisorReloj port map
 -- Maquina de estados que lee la ROM y forma la trama
 -----------------------------------------------------
 
- process(clk_div,reset)
+ process(clk_div,reset, SEND)
  begin
+ signalsend <= send;
  color <= SwitchR & SwitchG & SwitchB;
  SignalValor <= Switch0;
  DERE2<='1';
@@ -231,10 +235,10 @@ divisor:DivisorReloj port map
   elsif(rising_edge(clk_div)) then
     case(tx_state) is
       when IDLE =>  --reposo
-        ledsw<='1';
-        tx <= '1';
-        tx_bit <= 0;
-        tx_state <= START;
+            ledsw<='1';
+            tx <= '1';
+            tx_bit <= 0;
+            tx_state <= START;
           
         
       when START =>     --comienzo
@@ -257,130 +261,12 @@ divisor:DivisorReloj port map
       when STOP =>      --PARAR
         ledsw<='0';
         tx <= '1';
-        if(char_pointer=6) then                         --cambiar el tamaño de la trama
+        if (char_pointer=7) then                         --cambiar el tamaño de la trama --Hemos terminado de transmitir el mensaje
           led_o <= '1';
-          
         else  
           tx_state <= idle;
           char_pointer <= char_pointer+1;
           chartx_update <= '0';
-        end if;          
-     end case;
-   end if;
-end process;     
-end Behavioral;0);
-                    contador <= contador+1;  
-               elsif (contador = 9) then
-                    CRC16L <= CRC16FULL(7 DOWNTO 0);
-                    CRC16H <= CRC16FULL(15 DOWNTO 8);
-        --            contador <= 0;
-              else
-                    tmp := '0' & CRC16FULL(15 DOWNTO 1);
-                    if CRC16FULL(0) = '1' then
-                         CRC16FULL <= tmp XOR "1010000000000001";
-                    else
-                         CRC16FULL <= tmp;
-                    end if;
-                    contador <= contador+1; 
-                end if;
-        
-        
-     when 3 =>
-       char_tx <= "00000" & COLOR;      --valor del led     todos arriba hex 07
-       if (activar_crc3 = '1') then
-               contador <= 0;
-              elsif (contador = 0) then
-                   CRC16FULL(7 downto 0) <= char_tx xor CRC16FULL(7 downto 0);
-                   contador <= contador+1;  
-              elsif (contador = 9) then
-                   CRC16L <= CRC16FULL(7 DOWNTO 0);
-                   CRC16H <= CRC16FULL(15 DOWNTO 8);
-       --            contador <= 0;
-             else
-                   tmp := '0' & CRC16FULL(15 DOWNTO 1);
-                   if CRC16FULL(0) = '1' then
-                        CRC16FULL <= tmp XOR "1010000000000001";
-                   else
-                        CRC16FULL <= tmp;
-                   end if;
-                   contador <= contador+1; 
-               end if;
-       
-     when 4 => 
-        char_tx <= crc16l;
-     
-     when 5 =>
-         char_tx <= CRC16H;
-       
-     when 6 =>
-         char_tx <= conv_std_logic_vector(character'pos('F'),8);
-                  
-     when others =>
-       char_tx <= (others=>'0');
-  end case;       
- end if;
- end if;
-end process;
-
-
-divisor:DivisorReloj port map 
-(
-    clk=>clk,
-    reset=> reset,
-    clk_div=>clk_div
-);
-  
------------------------------------------------------
--- Maquina de estados que lee la ROM y forma la trama
------------------------------------------------------
-
- process(clk_div,reset)
- begin
- color <= SwitchR & SwitchG & SwitchB;
- --COLORInt <= conv_integer(unsigned(color));
- --COLORInt <= SwitchR & SwitchG & SwitchB;
- SignalValor <= Switch0;
- DERE2<='1';
-  if (reset='1') then
-    tx <= '1';
-    tx_state <= IDLE;
-    tx_bit <= 0;
-    led_o <= '0';
-    char_pointer <= 0;
-    wait_50 <= 0;
-    
-  elsif(rising_edge(clk_div)) then
-    case(tx_state) is
-      when IDLE =>  --reposo
-        ledsw<='1';
-        tx <= '1';
-        tx_bit <= 0;
-        if(wait_50=50) then
-          tx_state <= START;
-          wait_50 <= 0;
-        else
-          wait_50 <= wait_50 +1;
-        end if;	 
-      when START =>     --comienzo
-      ledsw<='0';
-        tx <= '0';
-        tx_state <= DATA;
-      when DATA =>      --transmitir bit a bit
-        
-        tx <= char_tx(tx_bit);
-        if(tx_bit=7) then
-          tx_state <= STOP;
-        else
-          tx_bit <= tx_bit+1;
-        end if;
-      when STOP =>      --PARAR
-      ledsw<='0';
-        tx <= '1';
-        if(char_pointer=6) then                         --cambiar el tamaño de la trama
-          led_o <= '1';
-        else  
-          tx_state <= IDLE;
-          char_pointer <= char_pointer+1;
         end if;          
      end case;
    end if;
