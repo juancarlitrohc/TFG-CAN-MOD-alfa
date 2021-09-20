@@ -4,28 +4,35 @@ use IEEE.STD_LOGIC_ARITH.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 
+
 entity Master_MOD is
     Port ( clk : in STD_LOGIC;
            reset : in STD_LOGIC;
+           SEND : in STD_LOGIC;
            Switch0 : in STD_LOGIC;
            SwitchB : in STD_LOGIC;
            SwitchG : in STD_LOGIC;
            SwitchR : in STD_LOGIC;
-           tx: out STD_LOGIC;
-           DERE2 : out STD_LOGIC;
-           led_o : out std_logic;
-           ledsw : out std_logic);
+           tx: inout STD_LOGIC;
+           ux : out STD_LOGIC;
+           rx: in STD_LOGIC;
+           DERE2 : out STD_LOGIC);
 end Master_MOD;
 
 architecture Behavioral of Master_MOD is
-
-    component DivisorReloj is
-    Port ( clk : in STD_LOGIC;
-           reset : in STD_LOGIC;
-           clk_div : out STD_LOGIC);
-    end component;
+        
+    CONSTANT INICIO : std_logic_vector(7 downto 0) := conv_std_logic_vector(character'pos(':'),8);
+    CONSTANT FIN1 : std_logic_vector(7 downto 0) := "00001101";--conv_std_logic_vector(00001101,8);
+    CONSTANT FIN2 : std_logic_vector(7 downto 0) := "00001010";--conv_std_logic_vector(00001010,8);
     
-  signal media : std_logic; 
+component DivisorReloj is
+Port ( clk : in STD_LOGIC;
+       reset : in STD_LOGIC;
+       clk_div : out STD_LOGIC);
+end component;
+  
+  type ListaEstadoControlador is (LECTURA, ESCRITURA);
+  signal StateMaster : ListaEstadoControlador;
   
   signal color : std_logic_vector (0 to 2);
   signal COLORInt : integer range 0 to 7;
@@ -36,41 +43,204 @@ architecture Behavioral of Master_MOD is
   
   signal tx_bit : integer range 0 to 7;
   
-  type tx_state_t is (IDLE, START, DATA, STOP);
+  type tx_state_t is (WAITING, IDLE, START, DATA, STOP);
   signal tx_state : tx_state_t; 
   
   signal char_tx : std_logic_vector(7 downto 0);
-  signal char_pointer : integer range 0 to 4;
+  signal char_pointer : integer range 0 to 10;
   
-  signal wait_50 : integer range 0 to 50;
+  signal rx_bit : integer range 0 to 7;
+  
+  type rx_state_r is (IDLE, START, DATA, STOP, CLEANUP);
+  signal rx_state : rx_state_r;
+  
+  signal char_rx : std_logic_vector(7 downto 0);
+  signal char_pointer_rx : integer range 0 to 5;
+  
+  signal LRC : std_logic_vector (7 downto 0);
+  
+  signal calcularC2_1    : std_logic;
+  signal calcularC2_2   : std_logic;
+  
+  signal activar_lrc1 : std_logic;
+  signal activar_lrc2 : std_logic;
+  signal activar_lrc3 : std_logic;
+  
+  signal contador : std_logic;
+  
+  signal instruccion : std_logic_vector(7 downto 0);
+  
+  
+  signal Direccion_Slave : std_logic_vector(7 downto 0);
+  signal Starting_Address_Hi : std_logic_vector(7 downto 0);
+  signal Starting_Address_Lo : std_logic_vector(7 downto 0);
+  signal Quantity_of_CR_Hi : std_logic_vector(7 downto 0);
+  signal Quantity_of_CR_Lo : std_logic_vector(7 downto 0);
+  signal Write_Data_Hi : std_logic_vector(7 downto 0);
+  signal Write_Data_Lo : std_logic_vector(7 downto 0);
+  
   
 begin
+activar_lrc1 <= '1' when tx_state=STOP else '0'; 
+activar_lrc3 <= '1' when activar_lrc1 = '1' and  activar_lrc2='0' else '0';
+
+
+Direccion_Slave <= conv_std_logic_vector(00000101,8);
+--CAMPO DATOS
+instruccion <= x"01";
+Starting_Address_Hi <= x"00";
+Starting_Address_Lo <= x"01"; --seleccionamos desde que sensor empezamos a leer 
+Quantity_of_CR_Hi <= x"00";
+Quantity_of_CR_Lo <= x"01"; --cantidad de datos que vamos a leer que para nuestros casos van a ser siempre 1
+Write_Data_Hi <= x"00"; -- 00 00 es OFF y 11 00 es ON
+Write_Data_Lo <= x"00";
+
 
 -----------------------------------------------------
 -- Memoria ROM que almacena la trama a enviar
 -----------------------------------------------------
-process(char_pointer)
+
+process(clk, reset, send)
 begin
-
-  case(char_pointer) is
-     when 0 =>
-       char_tx <= conv_std_logic_vector(character'pos('I'),8); --INICIO TRAMA
-     when 1 => 
-       char_tx <= conv_std_logic_vector(00000101, 8); --identificador del esclavo
-     when 2 =>
-        if (SignalValor = '0') then                                 --ORDEN
-            char_tx <= conv_std_logic_vector(character'pos('U'),8); 
-        else 
-            char_tx <= conv_std_logic_vector(character'pos('L'),8);
-        end if;
-     when 3 =>
-       char_tx <= conv_std_logic_vector(COLORInt,8);      --valor del led
-     when 4 =>
-         char_tx <= conv_std_logic_vector(character'pos('F'),8);
-     when others =>
-       char_tx <= (others=>'0');
-  end case;       
-
+  
+  if( Switch0 = '1') then
+        Write_Data_Hi <= x"11";
+  else 
+        Write_Data_Hi <= x"00";
+  end if;
+  
+  
+  if (reset = '1' or send ='1') then  --cuando le doy al reset me manda 49 hex
+    LRC <= x"00";
+    char_tx <= INICIO;  
+    calcularC2_1<='0';
+    calcularC2_2<='0';
+    activar_lrc2<='0';
+    contador <= '0';
+  
+  elsif (clk='1' and clk'event and tx_state/=waiting and send='0') then 
+      activar_lrc2 <= activar_lrc1;
+      if (tx_state = STOP ) then
+          case(char_pointer) is
+             when 0 => --campo inicio
+                char_tx <= INICIO;    
+                  
+             when 1 => --campo direccion
+                char_tx <= Direccion_Slave; --identificador del esclavo --65 en hex
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if; 
+                    
+             when 2 => --campo funcion
+                char_tx <= instruccion;
+               
+                case(instruccion) is 
+                    when x"01" => --Reads the ON/OFF status of discrete coils in the slave.
+                    
+                    when x"02" => --Reads the ON/OFF status of discrete inputs in the slave.
+                    
+                    when x"03" => --Read the binary contents of holding registers in the slave.
+                    
+                    when x"04" => --Read the binary contents of input registers in the slave.
+                    
+                    when x"05" => --Escribe ON u OF en un actuador.
+                    
+                    when x"06" => --Escribir valor en un solo registro
+                    
+                    when x"15" => --Writes each coil in a sequence of coils to either ON or OFF.
+                    
+                    when x"16" => --Writes values into a sequence of holding registers
+                    
+                    when others =>
+               
+               end case;
+               
+               if (activar_lrc3 = '1') then
+                    contador <= '0';
+               elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+               end if; 
+              
+             when 3 => --campo de datos
+                --char_tx <= "00000" & COLOR;      --valor del led     todos arriba hex 07
+                char_tx <= Starting_Address_Hi;
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if;
+             
+             when 4 =>
+                char_tx <= Starting_Address_Lo;
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if;
+                
+             when 5 =>
+                if (instruccion = x"05" or instruccion = x"06") then
+                    char_tx <= Write_Data_Hi;
+                else 
+                    char_tx <= Quantity_of_CR_Hi;
+                end if;
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if;
+                
+             when 6 =>
+                if (instruccion = x"05" or instruccion = x"06") then
+                    char_tx <= Write_Data_Lo;
+                else 
+                    char_tx <= Quantity_of_CR_Lo;
+                end if;
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                    calcularC2_1 <= '1';
+                 end if;
+                               
+             when 7 =>
+                char_tx <= LRC; 
+             when 8=>
+                 char_tx <= FIN1;
+             when 9 =>
+                 char_tx <= FIN2;
+             when 10 =>
+                 char_tx <= FIN2;
+             when others =>
+               char_tx <= (others=>'1');
+          end case; 
+  
+ 
+          if(calcularC2_1 = '1') then
+              if(calcularC2_2 = '0') THEN
+                  LRC <= LRC XOR x"FF";
+                  calcularC2_2 <= '1';
+              elsif(calcularC2_2 = '1') THEN
+                  LRC <= LRC + X"01";
+                  calcularC2_1<='0';
+                  calcularC2_2<='0';
+              end if;
+           end if;
+      end if;
+end if;
 end process;
 
 
@@ -82,57 +252,130 @@ divisor:DivisorReloj port map
 );
   
 -----------------------------------------------------
--- Maquina de estados que lee la ROM y forma la trama
+-- Maquina de estados que lee la ROM y forma la trama para enviarla
+-----------------------------------------------------
+  
+  p_UART_RX : process (clk_div)
+  begin
+    if rising_edge(Clk_div) then
+         
+      case (rx_state) is
+ 
+        when Idle =>
+          --r_RX_DV     <= '0';
+          rx_bit <= 0;
+ 
+          if rx = '0' then       -- Start bit detected
+            rx_state <= Start;
+          else
+            rx_state <= Idle;
+          end if;
+ 
+           
+        -- Check middle of start bit to make sure it's still low
+        when Start =>
+            if RX = '0' then
+              rx_state   <= Data;
+            else
+              rx_state   <= Idle;
+            end if;
+ 
+           
+        -- Wait g_CLKS_PER_BIT-1 clock cycles to sample serial data
+        when Data =>
+        
+            char_rx(rx_bit) <= RX; -- char_
+             
+            -- Check if we have sent out all bits
+            if rx_bit < 7 then
+              rx_bit <= rx_bit + 1;
+              rx_state   <= Data;
+            else
+              rx_bit <= 0;
+              rx_state   <= Stop;
+            end if;
+ 
+ 
+        -- Receive Stop bit.  Stop bit = 1
+        when Stop =>
+          -- Wait g_CLKS_PER_BIT-1 clock cycles for Stop bit to finish
+          
+            --r_RX_DV     <= '1';
+            rx_state   <= Cleanup;
+                   
+        -- Stay here 1 clock
+        when Cleanup =>
+            rx_state <= Idle;
+ 
+             
+        when others =>
+          rx_state <= Idle;
+ 
+      end case;
+    end if;
+  end process p_UART_RX;
+ 
+-----------------------------------------------------
+-- Maquina de estados que lee la ROM y forma la trama para enviarla
 -----------------------------------------------------
 
- process(clk_div,reset)
- begin
- color <= SwitchR & SwitchG & SwitchB;
- COLORInt <= conv_integer(unsigned(color));
- --COLORInt <= SwitchR & SwitchG & SwitchB;
- SignalValor <= Switch0;
- DERE2<='1';
-  if (reset='1') then
-    tx <= '1';
-    tx_state <= IDLE;
-    tx_bit <= 0;
-    led_o <= '0';
-    char_pointer <= 0;
-    wait_50 <= 0;
-  elsif(rising_edge(clk_div)) then
-    case(tx_state) is
-      when IDLE => 
-        ledsw<='1';
-        tx <= '1';
-        tx_bit <= 0;
-        if(wait_50=50) then
-          tx_state <= START;
-          wait_50 <= 0;
-        else
-          wait_50 <= wait_50 +1;
-        end if;	 
-      when START =>
-      ledsw<='0';
+process(clk,reset, send, clk_div)
+begin
+color <= SwitchR & SwitchG & SwitchB;
+SignalValor <= Switch0;
+DERE2<='1';
+ux <= tx;
+
+
+    if (reset='1') then
         tx <= '0';
-        tx_state <= DATA;
-      when DATA =>
-      ledsw<='0';
-        tx <= char_tx(tx_bit);
-        if(tx_bit=7) then
-          tx_state <= STOP;
-        else
-          tx_bit <= tx_bit+1;
-        end if;
-      when STOP =>
-      ledsw<='0';
-        tx <= '1';
-        if(char_pointer=4) then                         --cambiar el tamaño de la trama
-          led_o <= '1';
-        else  
-          tx_state <= IDLE;
-          char_pointer <= char_pointer+1;
-        end if;          
-     end case;
-   end if;
+        tx_state <= waiting;
+        tx_bit <= 0;
+        char_pointer <= 0;
+    elsif(rising_edge(clk_div)) then 
+        case(tx_state) is
+            when WAITING =>
+                tx_bit <= 0;
+                char_pointer <= 0;
+                tx <= '1';
+                if(send = '1') then
+                    tx_state <= idle;
+                end if;
+          when IDLE =>  --reposo
+                if(send = '0') then
+                    tx <= '1';
+                    tx_bit <= 0;
+                    tx_state <= START;
+                end if;
+          when START =>     --comienzo
+                if(send='0') then
+                    if (char_pointer /= 0) then
+                        tx <= '0';
+                    end if;
+                end if;
+                tx_state <= DATA;
+          when DATA =>      --transmitir bit a bit  
+                if(send='0') then
+                    if (char_pointer /= 0) then
+                        tx <= char_tx(tx_bit);
+                    end if;
+                    if(tx_bit=7) then
+                        tx_state <= STOP;
+                    else
+                        tx_bit <= tx_bit+1;
+                    end if;
+                end if;
+          when STOP =>      --PARAR en este momento se ha terminado de transmitir el byte
+                if(send = '0') then
+                    tx <= '1';
+                    if (char_pointer=10) then  --cambiar el tamaño de la trama --Hemos terminado de transmitir el mensaje
+                        tx_state <= waiting;      
+                    else  
+                        tx_state <= idle;
+                        char_pointer <= char_pointer+1;
+                    end if;
+                end if;       
+         end case;
+    end if;
 end process;     
 end Behavioral;
