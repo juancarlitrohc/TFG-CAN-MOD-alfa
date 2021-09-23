@@ -3,8 +3,6 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.STD_LOGIC_ARITH.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
-
-
 entity Master_MOD is
     Port ( clk : in STD_LOGIC;
            reset : in STD_LOGIC;
@@ -13,17 +11,17 @@ entity Master_MOD is
            SwitchB : in STD_LOGIC;
            SwitchG : in STD_LOGIC;
            SwitchR : in STD_LOGIC;
-           tx: inout STD_LOGIC;
+           tx: out STD_LOGIC;
            ux : out STD_LOGIC;
-           rx: in STD_LOGIC;
+           --rx: in STD_LOGIC;
            DERE2 : out STD_LOGIC);
 end Master_MOD;
 
 architecture Behavioral of Master_MOD is
         
     CONSTANT INICIO : std_logic_vector(7 downto 0) := conv_std_logic_vector(character'pos(':'),8);
-    CONSTANT FIN1 : std_logic_vector(7 downto 0) := "00001101";--conv_std_logic_vector(00001101,8);
-    CONSTANT FIN2 : std_logic_vector(7 downto 0) := "00001010";--conv_std_logic_vector(00001010,8);
+    CONSTANT FIN1 : std_logic_vector(7 downto 0) := "00001101";
+    CONSTANT FIN2 : std_logic_vector(7 downto 0) := "00001010";
     
 component DivisorReloj is
 Port ( clk : in STD_LOGIC;
@@ -47,7 +45,7 @@ end component;
   signal tx_state : tx_state_t; 
   
   signal char_tx : std_logic_vector(7 downto 0);
-  signal char_pointer : integer range 0 to 10;
+  signal char_pointer : integer range 0 to 11;
   
   signal rx_bit : integer range 0 to 7;
   
@@ -76,24 +74,37 @@ end component;
   signal Starting_Address_Lo : std_logic_vector(7 downto 0);
   signal Quantity_of_CR_Hi : std_logic_vector(7 downto 0);
   signal Quantity_of_CR_Lo : std_logic_vector(7 downto 0);
-  signal Write_Data_Hi : std_logic_vector(7 downto 0);
-  signal Write_Data_Lo : std_logic_vector(7 downto 0);
   
+  signal CONT8B : std_logic_vector(7 downto 0);
+  signal CONT8B_INI : std_logic_vector(7 downto 0);
+  type mem is array (integer range <>) of std_logic_vector(7 downto 0);
+  signal data1  : mem(0 to 255);
+  
+  signal rx : std_logic;
   
 begin
 activar_lrc1 <= '1' when tx_state=STOP else '0'; 
 activar_lrc3 <= '1' when activar_lrc1 = '1' and  activar_lrc2='0' else '0';
 
 
-Direccion_Slave <= conv_std_logic_vector(00000101,8);
+Direccion_Slave <= x"11";
+instruccion <= x"0f";
 --CAMPO DATOS
-instruccion <= x"01";
 Starting_Address_Hi <= x"00";
-Starting_Address_Lo <= x"01"; --seleccionamos desde que sensor empezamos a leer 
+Starting_Address_Lo <= x"13"; --seleccionamos desde que sensor empezamos a leer 
 Quantity_of_CR_Hi <= x"00";
-Quantity_of_CR_Lo <= x"01"; --cantidad de datos que vamos a leer que para nuestros casos van a ser siempre 1
-Write_Data_Hi <= x"00"; -- 00 00 es OFF y 11 00 es ON
-Write_Data_Lo <= x"00";
+Quantity_of_CR_Lo <= x"0A"; --cantidad de datos que vamos a leer que para nuestros casos van a ser siempre 1
+CONT8B_INI <= x"02";
+data1(0) <= x"CD";
+data1(1) <= x"01";
+
+
+divisor:DivisorReloj port map 
+(
+    clk=>clk,
+    reset=> reset,
+    clk_div=>clk_div
+);
 
 
 -----------------------------------------------------
@@ -103,11 +114,6 @@ Write_Data_Lo <= x"00";
 process(clk, reset, send)
 begin
   
-  if( Switch0 = '1') then
-        Write_Data_Hi <= x"11";
-  else 
-        Write_Data_Hi <= x"00";
-  end if;
   
   
   if (reset = '1' or send ='1') then  --cuando le doy al reset me manda 49 hex
@@ -123,7 +129,7 @@ begin
       if (tx_state = STOP ) then
           case(char_pointer) is
              when 0 => --campo inicio
-                char_tx <= INICIO;    
+                char_tx <= INICIO;
                   
              when 1 => --campo direccion
                 char_tx <= Direccion_Slave; --identificador del esclavo --65 en hex
@@ -188,11 +194,7 @@ begin
                 end if;
                 
              when 5 =>
-                if (instruccion = x"05" or instruccion = x"06") then
-                    char_tx <= Write_Data_Hi;
-                else 
-                    char_tx <= Quantity_of_CR_Hi;
-                end if;
+                char_tx <= Quantity_of_CR_Hi;
                 
                 if (activar_lrc3 = '1') then
                     contador <= '0';
@@ -202,11 +204,8 @@ begin
                 end if;
                 
              when 6 =>
-                if (instruccion = x"05" or instruccion = x"06") then
-                    char_tx <= Write_Data_Lo;
-                else 
-                    char_tx <= Quantity_of_CR_Lo;
-                end if;
+             
+                char_tx <= Quantity_of_CR_Lo;
                 
                 if (activar_lrc3 = '1') then
                     contador <= '0';
@@ -215,14 +214,31 @@ begin
                     contador <= NOT contador;
                     calcularC2_1 <= '1';
                  end if;
+             
                                
              when 7 =>
-                char_tx <= LRC; 
-             when 8=>
+                if (instruccion = x"0f" or instruccion = x"10") then
+                    if (cont8b < cont8b_ini) then
+                        char_tx <= data1(conv_integer(cont8b));
+                        if (activar_lrc3 = '1') then
+                            contador <= '0';
+                        elsif (contador = '0') then
+                            LRC <= LRC + data1(conv_integer(cont8b));
+                            contador <= NOT contador;
+                            
+                        end if;
+                    else
+                        calcularC2_1 <= '1';
+                    end if;
+                end if;
+              when 8=>
+                 char_tx <= LRC;   
+                
+             when 9=>
                  char_tx <= FIN1;
-             when 9 =>
-                 char_tx <= FIN2;
              when 10 =>
+                 char_tx <= FIN2;
+             when 11 =>
                  char_tx <= FIN2;
              when others =>
                char_tx <= (others=>'1');
@@ -244,12 +260,7 @@ end if;
 end process;
 
 
-divisor:DivisorReloj port map 
-(
-    clk=>clk,
-    reset=> reset,
-    clk_div=>clk_div
-);
+
   
 -----------------------------------------------------
 -- Maquina de estados que lee la ROM y forma la trama para enviarla
@@ -296,7 +307,7 @@ divisor:DivisorReloj port map
             end if;
  
  
-        -- Receive Stop bit.  Stop bit = 1
+        -- Receive Stop bit.  Stop bit = 1  
         when Stop =>
           -- Wait g_CLKS_PER_BIT-1 clock cycles for Stop bit to finish
           
@@ -324,7 +335,7 @@ begin
 color <= SwitchR & SwitchG & SwitchB;
 SignalValor <= Switch0;
 DERE2<='1';
-ux <= tx;
+
 
 
     if (reset='1') then
@@ -335,6 +346,7 @@ ux <= tx;
     elsif(rising_edge(clk_div)) then 
         case(tx_state) is
             when WAITING =>
+                cont8b <= (others => '0');
                 tx_bit <= 0;
                 char_pointer <= 0;
                 tx <= '1';
@@ -368,11 +380,23 @@ ux <= tx;
           when STOP =>      --PARAR en este momento se ha terminado de transmitir el byte
                 if(send = '0') then
                     tx <= '1';
-                    if (char_pointer=10) then  --cambiar el tamaño de la trama --Hemos terminado de transmitir el mensaje
+                    if (char_pointer=11) then  --cambiar el tamaño de la trama --Hemos terminado de transmitir el mensaje
                         tx_state <= waiting;      
                     else  
                         tx_state <= idle;
-                        char_pointer <= char_pointer+1;
+                        
+                        if ((instruccion = x"05" or instruccion = x"06") and char_pointer = 4) then
+                            char_pointer <= 7;
+                        
+                        else if ((instruccion = x"0f" or instruccion = x"10") and char_pointer = 7) then
+                            if (cont8b = cont8b_ini) then
+                                char_pointer <= char_pointer+1;
+                            else
+                                cont8b <= cont8b+1;
+                            end if;
+                        else
+                            char_pointer <= char_pointer+1;
+                        end if;
                     end if;
                 end if;       
          end case;
