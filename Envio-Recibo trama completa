@@ -1,0 +1,482 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+entity Send1char is
+    generic(
+        g_CLKS_PER_BIT : integer := 10416
+        );
+    Port ( clk : in STD_LOGIC;
+           reset : in STD_LOGIC;
+           SEND : in STD_LOGIC;
+           tx: out STD_LOGIC;
+           rx : in std_logic;
+           led0 : out std_logic;
+           led1 : out std_logic;
+           led2 : out std_logic;
+           led3 : out std_logic;
+           led0H : out std_logic;
+           led1H : out std_logic;
+           led2H : out std_logic;
+           led3H : out std_logic;
+           led0_g : out std_logic;
+           led0_r : out std_logic;
+           led1_r : out std_logic;
+           led2_r : out std_logic;
+           led3_r : out std_logic;
+           Switch0 : IN std_logic;
+           Switch1 : IN std_logic;
+           Switch2 : IN std_logic;
+           Switch3 : IN std_logic
+           );
+end Send1char;
+
+architecture Behavioral of Send1char is
+
+    CONSTANT INICIO : std_logic_vector(7 downto 0) := conv_std_logic_vector(character'pos(':'),8);
+    CONSTANT FIN1 : std_logic_vector(7 downto 0) := "00001101";
+    CONSTANT FIN2 : std_logic_vector(7 downto 0) := "00001010";
+
+--SEÑALES DE CONTROL DE ENVÍO
+    
+    signal clk_counter : integer range 0 to 5208;
+    signal clk_div : std_logic := '0';
+    
+    signal Lighter : std_logic_vector(7 downto 0) := x"00";
+    
+    type tx_state_t is (WAITING, IDLE, START, DATA, STOP);
+    signal tx_state : tx_state_t;
+    signal tx_bit : integer range 0 to 8 := 0;
+    signal char_tx : std_logic_vector(7 downto 0) := x"00";
+    
+    signal activar_lrc1 : std_logic;
+    signal activar_lrc2 : std_logic;
+    signal activar_lrc3 : std_logic;
+    signal calcularC2_1    : std_logic := '0';
+    signal calcularC2_2   : std_logic := '0';
+    signal contador : std_logic;
+    
+    signal parada : std_logic := '0';
+    
+--SEÑALES DE CONTROL DE RECIBO
+    type rx_state_t is (IDLE, START, DATA, STOP, CLEANUP);
+    signal rx_state : rx_state_t;
+    signal char_rx : std_logic_vector(7 downto 0) := x"00";
+    signal rx_bit : integer range 0 to 7 := 0;
+    
+    signal r_RX_Data_R : std_logic := '0';
+    signal r_RX_Data   : std_logic := '0';
+    
+    signal R_clk_counter : integer range 0 to g_CLKS_PER_BIT := 0;
+    
+--SEÑALES DE 
+    signal Direccion_SlaveH :  STD_LOGIC_VECTOR(7 DOWNTO 0) := "00000000";
+    signal Direccion_SlaveL :  STD_LOGIC_VECTOR(7 DOWNTO 0) := "00000000";
+    signal InstruccionH : STD_LOGIC_VECTOR(7 downto 0) := "00000000";
+    signal InstruccionL :  STD_LOGIC_VECTOR (7 DOWNTO 0) := "00000000";
+    signal  Starting_Address_Hi :  STD_LOGIC_VECTOR(7 DOWNTO 0) := "00000000";
+    signal  Starting_Address_Lo :  STD_LOGIC_VECTOR(7 DOWNTO 0) := "00000000"; 
+    signal  Quantity_of_CR_Hi :  STD_LOGIC_VECTOR(7 DOWNTO 0) := "00000000";
+    signal  Quantity_of_CR_Lo :  STD_LOGIC_VECTOR(7 DOWNTO 0) := "00000000";
+    signal  CONT8B_INI :  STD_LOGIC_VECTOR(7 DOWNTO 0) := "00000000";
+    signal CONT8B_rx : STD_LOGIC_VECTOR(7 DOWNTO 0) := "00000000";
+    signal CONT8B : std_logic_vector(7 downto 0) := "00000000";
+    type mem is array (integer range <>) of std_logic_vector(7 downto 0);
+    signal data1  : mem(0 to 255);
+    
+    signal LRC : std_logic_vector (7 downto 0) := "00000000";
+    
+    signal rx_char_counter : integer range 0 to 11 := 0;
+    signal tx_char_counter : integer range 0 to 13 := 0;
+    
+    
+    
+begin
+
+activar_lrc1 <= '1' when tx_state=STOP else '0'; 
+activar_lrc3 <= '1' when activar_lrc1 = '1' and  activar_lrc2='0' else '0';
+
+Divisor_Reloj : process(clk,reset)
+begin
+    if (reset='1') then
+        clk_div <='0';
+    elsif(rising_edge(clk)) then
+        if(clk_counter = 5208) then  -- 5208  
+            clk_div <= not(clk_div);
+            clk_counter <= 0;
+        else
+        clk_counter <= clk_counter +1;
+        end if;
+    end if;  
+end process Divisor_Reloj;
+
+ p_SAMPLE : process (Clk)
+  begin
+    if rising_edge(Clk) then
+      r_RX_Data_R <= rx;
+      r_RX_Data   <= r_RX_Data_R;
+    end if;
+  end process p_SAMPLE;
+  
+
+
+process(clk, reset)
+begin
+    if(reset = '1') then
+        R_clk_counter <= 0;
+        rx_state <= IDLE;
+        char_rx <= x"00";
+        rx_bit <= 0;
+        rx_char_counter <= 0;
+    else
+        if(rising_edge (clk)) then
+            case (rx_state) is
+                when IDLE =>
+                    if(r_RX_Data = '1') then
+                        rx_state <= idle;
+                    else 
+                        rx_state <= START;
+                    end if;
+                    R_clk_counter <= 0;
+                    rx_bit <= 0;
+                    
+                when START =>
+                    if R_clk_counter = (g_CLKS_PER_BIT-1)/2 then
+                        if r_RX_Data = '0' then
+                            R_clk_counter <= 0;
+                            rx_state <= DATA;
+                        else 
+                            rx_state <= idle;
+                        end if;
+                    else    
+                        R_clk_counter <= R_clk_counter +1;
+                        rx_state <= START;
+                    end if;
+                    rx_bit<=0;
+                
+                when DATA => 
+                    if R_clk_counter < g_CLKS_PER_BIT-1 then
+                        rx_state <= DATA;
+                        R_clk_counter <= R_clk_counter + 1;
+                    else 
+                        char_rx(rx_bit) <= r_RX_Data;
+                        R_clk_counter <= 0;
+                        
+                        if(rx_bit < 7) then
+                            rx_bit  <= rx_bit +1;
+                            rx_state <= DATA;
+                        else
+                            
+                            rx_bit <= 0;
+                            rx_state<=STOP;
+                        end if;
+                    end if;
+                    
+                when STOP => 
+                    if R_clk_counter < (g_CLKS_PER_BIT-1) then
+                        R_clk_counter <= R_clk_counter+1;
+                    else
+                        case (rx_char_counter) is
+                            when 0 => 
+                                Direccion_SlaveH <= char_rx;
+                                rx_char_counter <= 1;
+                            when 1 => 
+                                Direccion_SlaveL <= char_rx;
+                                rx_char_counter <= 2;
+                            when 2 => 
+                                InstruccionH <= char_rx;
+                                rx_char_counter <= 3;
+                            when 3 => 
+                                InstruccionL <= char_rx;
+                                rx_char_counter <= 4;
+                            when 4 => 
+                                Starting_Address_Hi <= char_rx;
+                                rx_char_counter <= 5;
+                            when 5 => 
+                                Starting_Address_Lo <= char_rx;
+                                if(InstruccionL = x"05" or InstruccionL = x"06") then
+                                    RX_char_counter <= 10;
+                                else
+                                    RX_char_counter <= 6;
+                                end if;
+                            when 6 => 
+                                Quantity_of_CR_Hi <= char_rx;
+                                rx_char_counter <= 7;
+                            when 7 => 
+                                Quantity_of_CR_Lo <= char_rx;
+                                if(InstruccionL = x"0F" or InstruccionL = x"10") then
+                                    RX_char_counter <= 8;
+                                    
+                                elsif(InstruccionL = x"01" or InstruccionL = x"02" or InstruccionL = x"03" or InstruccionL = x"04") then
+                                    RX_char_counter <= 0;
+                                end if;
+                            when 8 => 
+                                CONT8B_INI <= char_rx;
+                                rx_char_counter <= 9;
+                            when 9 => 
+                                data1(CONV_INTEGER(CONT8B)) <= char_rx;
+                                if(CONT8B_rx < CONT8B_INI) then
+                                    CONT8B_rx <= CONT8B_rx + 1;
+                                else
+                                    RX_char_counter <= 0;
+                                    CONT8B_RX <= x"00";
+                                end if;
+                            when 10 => 
+                                data1(0) <= char_rx;
+                                rx_char_counter <= 11;
+                            when 11 => 
+                                data1(1) <= char_rx;
+                                rx_char_counter <= 0;
+                        end case;
+                        R_clk_counter <= 0;
+                        rx_state<=cleanup;
+                    end if;
+                when CLEANUP => 
+                    rx_state <= idle;
+                    
+                when others =>
+                    rx_state <= Idle;
+                    
+            end case;
+        end if;
+    end if;
+
+end process;
+
+
+
+--process (clk, reset)
+--begin 
+--    if(clk = '1' and clk'event) THEN
+--        case (tx_char_counter) is 
+--            when 0 => 
+--                char_tx <= identificador1; 
+--            when 1 => 
+--                char_tx <= identificador2; 
+--            when 2 => 
+--                char_tx <= instruccion1;
+--            when 3 => 
+--                char_tx <= instruccion2;
+--         end case; 
+--     end if; 
+--end process;
+
+process(clk, reset)
+begin 
+    if(reset = '1') then 
+        LRC <= x"00";
+        char_tx <= INICIO;  
+        calcularC2_1<='0';
+        calcularC2_2<='0';
+        activar_lrc2<='0';
+        contador <= '0';
+    elsif(clk='1' and clk'event) then 
+        activar_lrc2 <= activar_lrc1;
+        case (tx_char_counter) is 
+           when 0 => --campo inicio
+                char_tx <= INICIO;
+                  
+             when 1 => --campo direccion
+                char_tx <= Direccion_SlaveH; --identificador del esclavo --65 en hex
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if; 
+             
+             when 2 => 
+                 char_tx <= Direccion_Slavel; --identificador del esclavo --65 en hex
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if; 
+             
+             when 3 => 
+                 char_tx <= InstruccionH; --identificador del esclavo --65 en hex
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if; 
+             when 4 => --campo funcion
+                char_tx <= instruccionL;
+               
+               if (activar_lrc3 = '1') then
+                    contador <= '0';
+               elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+               end if; 
+              
+             when 5 => 
+                char_tx <= Starting_Address_Hi;
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if;
+             
+             when 6 =>
+                char_tx <= Starting_Address_Lo;
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if;
+                
+            when 7 =>
+                if (instruccionL = x"05" or instruccionL = x"06") then
+                    char_tx <= data1(0);
+                else
+                    char_tx <= Quantity_of_CR_Hi;
+                end if;
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                end if;
+                
+             when 8 =>
+                if (instruccionL = x"05" or instruccionL = x"06") then
+                    char_tx <= data1(1);
+                else
+                    char_tx <= Quantity_of_CR_Lo;
+                end if;
+                
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                    if (instruccionL < x"07") then
+                        calcularC2_1 <= '1';
+                    end if;
+                 end if;
+             when 9 =>
+                char_tx <= CONT8B_INI;
+                
+                if (activar_lrc3 = '1') then
+                    contador <= '0';
+                elsif (contador = '0') then
+                    LRC <= LRC + char_tx;
+                    contador <= NOT contador;
+                 end if;
+                                               
+             when 10 =>
+                if (instruccionL = x"0f" or instruccionL = x"10") then
+                    if (cont8b < cont8b_ini) then
+                        char_tx <= data1(conv_integer(cont8b));
+                        if (activar_lrc3 = '1') then
+                            contador <= '0';
+                        elsif (contador = '0') then
+                            LRC <= LRC + data1(conv_integer(cont8b));
+                            contador <= NOT contador;
+                        end if;
+                    else
+                        calcularC2_1 <= '1';
+                    end if;
+                end if;
+              when 11=>
+                 char_tx <= LRC;   
+                
+             when 12=>
+                 char_tx <= FIN1;
+             when 13 =>
+                 char_tx <= FIN2;
+                 parada <= '1';
+             when others =>
+               char_tx <= (others=>'1');
+          end case; 
+    end if;
+end process;
+
+
+process(clk, reset, send)
+begin
+    if reset = '1' then
+        tx_state <= WAITING;
+--        char_tx <= x"00";
+        tx<='1';
+        tx_bit <= 0;
+        tx_char_counter <= 0;
+     elsif(rising_edge(clk_div)) then
+        case(tx_state) is 
+            when WAITING => 
+                tx <= '1';
+                tx_bit <= 0;
+                tx_char_counter <= 0;
+                if(send = '1') then
+                    tx_state <= idle;
+                end if;
+            when idle => 
+                if(send = '0') then
+                    tx <= '1';
+                    tx_bit <= 0;
+                    tx_state <= START;
+                end if;
+            when START => 
+                    tx <= '0';
+                    tx_bit <= 0;
+                    tx_state <= DATA;
+            when DATA => 
+                led3_r <= '1';
+                tx <= char_tx(tx_bit);
+                if(tx_bit=7) then
+                    tx_state <= STOP;
+                    led3_r<= '0';
+                else
+                    tx_bit <= tx_bit+1;
+                end if;
+            when STOP => 
+                if(parada = '1') then
+                    tx_state <= WAITING;
+                else 
+                    tx_char_counter <= tx_char_counter +1;
+                    tx_state <= idle;
+                end if;   
+                tx <= '1';
+        end case;
+     end if;
+end process;
+
+PLights : process(clk, reset)
+begin
+       
+--    if (Switch1 = '0' and Switch0 = '0') then
+--        lighter <= identificador1;
+--    elsif (Switch1 = '0' and Switch0 = '1') then
+--        lighter <= identificador2;
+--    elsif (Switch1 = '1' and Switch0 = '0') then
+--        lighter <= instruccion1;
+--    elsif (Switch1 = '1' and Switch0 = '1') then
+--        lighter <= instruccion2;
+--    end if;
+    
+    led0 <= lighter(0);
+    led1 <= lighter(1);
+    led2 <= lighter(2);
+    led3 <= lighter(3);
+    led0H <= lighter(4);
+    led1H <= lighter(5);
+    led2H <= lighter(6);
+    led3H <= lighter(7); 
+    
+end process PLights;
+
+
+end Behavioral;
