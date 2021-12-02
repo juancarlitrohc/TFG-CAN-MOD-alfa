@@ -1,0 +1,276 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+entity Send1char is
+    generic(
+        g_CLKS_PER_BIT : integer := 10416
+        );
+    Port ( clk : in STD_LOGIC;
+           reset : in STD_LOGIC;
+           SEND : in STD_LOGIC;
+           tx: out STD_LOGIC;
+           rx : in std_logic;
+           led0 : out std_logic;
+           led1 : out std_logic;
+           led2 : out std_logic;
+           led3 : out std_logic;
+           led0H : out std_logic;
+           led1H : out std_logic;
+           led2H : out std_logic;
+           led3H : out std_logic;
+           led0_g : out std_logic;
+           led0_r : out std_logic;
+           led1_r : out std_logic;
+           led2_r : out std_logic;
+           led3_r : out std_logic;
+           Switch0 : IN std_logic;
+           Switch1 : IN std_logic;
+           Switch2 : IN std_logic;
+           Switch3 : IN std_logic
+           );
+end Send1char;
+
+architecture Behavioral of Send1char is
+
+--SEÑALES DE CONTROL
+    
+    signal clk_counter : integer range 0 to 5208;
+    signal clk_div : std_logic := '0';
+    
+    signal Lighter : std_logic_vector(7 downto 0) := x"00";
+    
+    type tx_state_t is (WAITING, IDLE, START, DATA, STOP);
+    signal tx_state : tx_state_t;
+    signal tx_bit : integer range 0 to 8 := 0;
+    signal char_tx : std_logic_vector(7 downto 0) := x"00";
+    
+    
+    type rx_state_t is (IDLE, START, DATA, STOP, CLEANUP);
+    signal rx_state : rx_state_t;
+    signal char_rx : std_logic_vector(7 downto 0) := x"00";
+    signal rx_bit : integer range 0 to 7 := 0;
+    
+    signal r_RX_Data_R : std_logic := '0';
+    signal r_RX_Data   : std_logic := '0';
+    
+    signal R_clk_counter : integer range 0 to g_CLKS_PER_BIT := 0;
+    
+--SEÑALES DE DATOS
+    signal identificador1 : std_logic_vector(7 downto 0) := x"00";
+    signal identificador2 : std_logic_vector(7 downto 0) := x"00";
+    signal instruccion1 : std_logic_vector(7 downto 0) := x"00";
+    signal instruccion2 : std_logic_vector(7 downto 0) := x"00";
+    
+    signal rx_char_counter : integer range 0 to 3 := 0;
+    signal tx_char_counter : integer range 0 to 3 := 0;
+    
+    signal asignar : std_logic;
+    signal res : std_logic;
+    
+    
+begin
+
+Divisor_Reloj : process(clk,reset)
+begin
+    if (reset='1') then
+        clk_div <='0';
+    elsif(rising_edge(clk)) then
+        if(clk_counter = 5208) then  -- 5208  
+            clk_div <= not(clk_div);
+            clk_counter <= 0;
+        else
+        clk_counter <= clk_counter +1;
+        end if;
+    end if;  
+end process Divisor_Reloj;
+
+ p_SAMPLE : process (Clk)
+  begin
+    if rising_edge(Clk) then
+      r_RX_Data_R <= rx;
+      r_RX_Data   <= r_RX_Data_R;
+    end if;
+  end process p_SAMPLE;
+  
+
+
+process(clk, reset)
+begin
+    if(reset = '1') then
+        R_clk_counter <= 0;
+        rx_state <= IDLE;
+        char_rx <= x"00";
+        rx_bit <= 0;
+        rx_char_counter <= 0;
+    else
+        if(rising_edge (clk)) then
+            case (rx_state) is
+                when IDLE =>
+                    if(r_RX_Data = '1') then
+                        rx_state <= idle;
+                    else 
+                        rx_state <= START;
+                    end if;
+                    asignar <= '1';
+                    R_clk_counter <= 0;
+                    rx_bit <= 0;
+                    
+                when START =>
+                    if R_clk_counter = (g_CLKS_PER_BIT-1)/2 then
+                        if r_RX_Data = '0' then
+                            R_clk_counter <= 0;
+                            rx_state <= DATA;
+                        else 
+                            rx_state <= idle;
+                        end if;
+                    else    
+                        R_clk_counter <= R_clk_counter +1;
+                        rx_state <= START;
+                    end if;
+                    rx_bit<=0;
+                
+                when DATA => 
+                    if R_clk_counter < g_CLKS_PER_BIT-1 then
+                        rx_state <= DATA;
+                        R_clk_counter <= R_clk_counter + 1;
+                    else 
+                        char_rx(rx_bit) <= r_RX_Data;
+                        R_clk_counter <= 0;
+                        
+                        if(rx_bit < 7) then
+                            rx_bit  <= rx_bit +1;
+                            rx_state <= DATA;
+                        else
+                            
+                            rx_bit <= 0;
+                            rx_state<=STOP;
+                        end if;
+                    end if;
+                    
+                when STOP => 
+                    if R_clk_counter < (g_CLKS_PER_BIT-1) then
+                        R_clk_counter <= R_clk_counter+1;
+                        asignar <= '0';
+                    else
+                        case (rx_char_counter) is
+                            when 0 => 
+                                identificador1 <= char_rx;
+                                rx_char_counter <= 1;
+                            when 1 => 
+                                identificador2 <= char_rx;
+                                rx_char_counter <= 2;
+                            when 2 => 
+                                instruccion1 <= char_rx;
+                                rx_char_counter <= 3;
+                            when 3 => 
+                                instruccion2 <= char_rx;
+                                rx_char_counter <= 0;
+                        end case;
+                        R_clk_counter <= 0;
+                        rx_state<=cleanup;
+                        asignar <= '1';
+                    end if;
+                when CLEANUP => 
+                    asignar <= '0';
+                    rx_state <= idle;
+                    
+                when others =>
+                    rx_state <= Idle;
+                    
+            end case;
+        end if;
+    end if;
+
+end process;
+
+
+
+process (clk, reset)
+begin 
+    if(clk = '1' and clk'event) THEN
+        case (tx_char_counter) is 
+            when 0 => 
+                char_tx <= identificador1; 
+            when 1 => 
+                char_tx <= identificador2; 
+            when 2 => 
+                char_tx <= instruccion1;
+            when 3 => 
+                char_tx <= instruccion2;
+         end case; 
+     end if; 
+end process;
+
+process(clk, reset, send)
+begin
+    if reset = '1' then
+        tx_state <= WAITING;
+--        char_tx <= x"00";
+        tx<='1';
+        tx_bit <= 0;
+        tx_char_counter <= 0;
+     elsif(rising_edge(clk_div)) then
+        case(tx_state) is 
+            when WAITING => 
+                tx <= '1';
+                tx_bit <= 0;
+                tx_char_counter <= 0;
+                if(send = '1') then
+                    tx_state <= idle;
+                end if;
+            when idle => 
+                if(send = '0') then
+                    tx <= '1';
+                    tx_bit <= 0;
+                    tx_state <= START;
+                end if;
+            when START => 
+                    tx <= '0';
+                    tx_bit <= 0;
+                    tx_state <= DATA;
+            when DATA => 
+                led3_r <= '1';
+                tx <= char_tx(tx_bit);
+                if(tx_bit=7) then
+                    tx_state <= STOP;
+                    led3_r<= '0';
+                else
+                    tx_bit <= tx_bit+1;
+                end if;
+            when STOP => 
+                if(tx_char_counter = 3) then
+                    tx_state <= WAITING;
+                else 
+                    tx_char_counter <= tx_char_counter +1;
+                    tx_state <= idle;
+                end if;   
+                tx <= '1';
+        end case;
+     end if;
+end process;
+
+PLights : process(clk, reset)
+begin
+       
+    if (Switch1 = '0' and Switch0 = '0') then
+        lighter <= identificador1;
+    elsif (Switch1 = '0' and Switch0 = '1') then
+        lighter <= identificador2;
+    elsif (Switch1 = '1' and Switch0 = '0') then
+        lighter <= instruccion1;
+    elsif (Switch1 = '1' and Switch0 = '1') then
+        lighter <= instruccion2;
+    end if;
+    
+    led0 <= lighter(0);
+    led1 <= lighter(1);
+    led2 <= lighter(2);
+    led3 <= lighter(3);
+    led0H <= lighter(4);
+    led1H <= lighter(5);
+    led2H <= lighter(6);
+    led3H <= lighter(7); 
+    
+end process PLights;
