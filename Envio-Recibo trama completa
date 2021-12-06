@@ -215,7 +215,7 @@ begin
                                 CONT8B_INI <= char_rx;
                                 rx_char_counter <= 9;
                             when 9 => 
-                                data1(CONV_INTEGER(CONT8B)) <= char_rx;
+                                data1(CONV_INTEGER(CONT8B_rx)) <= char_rx;
                                 if(CONT8B_rx < CONT8B_INI) then
                                     CONT8B_rx <= CONT8B_rx + 1;
                                 else
