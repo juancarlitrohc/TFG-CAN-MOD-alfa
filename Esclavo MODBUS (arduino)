@@ -1,36 +1,112 @@
+//ULTRASONIDO
 #define TRIGGER 6
 #define ECHO 7
 
-#define BLUE 9
-#define GREEN 10
-#define RED 11
+#define UltraAdress 3
+
+//joystick ANALOGICO
+#define EjeX 0
+#define EjeY 1
+#define CLICK 13
+
+#define EjeXAdress 0
+#define EjeYAdress 1
+#define ClickAdress 3
+
+//pulsador
+#define PULSE 4
+
+//BallInterruptor
+#define Interruptor 12
+#define InterruptorAdress 5
+
+//LEDRGB
+#define BLUE 8
+#define GREEN 9
+#define RED 10
+
+#define BLUE_ADRESS 2
+#define GREEN_ADRESS 1
+#define RED_ADRESS 0
 
 const int EnTxPin2 =  2;  // HIGH:TX y LOW:RX
-const int midireccion = 101; //Direccion del esclavo
-const int maestro = 100;
 
-int DISTANCIA;
-bool EsperandoValor = false;
-int COLOR;
+const unsigned char INICIO = 0x3A; //Inicio de la trama
+const unsigned char miDireccionH = 0x00; //Direccion del esclavo
+const unsigned char miDireccionL = 0x0B;
+const unsigned char Fin1 = 0x0D; //Final1 de la trama
+const unsigned char Fin2 = 0x0A; //Final2 de la trama
 
-char inChar;
+unsigned char Direccion_SlaveH = 0x00;
+unsigned char Direccion_SlaveL = 0x00;
+unsigned char InstruccionH = 0x00;
+unsigned char InstruccionL = 0x00;
+unsigned char Starting_Address_Hi = 0x00;
+unsigned char Starting_Address_Lo = 0x00;
+unsigned char Quantity_of_CR_Hi = 0x00;
+unsigned char Quantity_of_CR_Lo = 0x00;
+unsigned char ByteCount = 0x00;
+unsigned char LRC16H = 0x00;
+unsigned char LRC16L = 0x00;
+uint16_t LRC = 0x00; //ENTERO SIN SIGNO 16 BITS
+
+unsigned char CodigoError = 0x00;
+unsigned char Dato1 = 0x00;
+unsigned char Dato2 = 0x00;
+uint16_t Adress = 0x0000;
+
+bool COILOut[20];
+bool COILIn[20];
+unsigned char RegistersOUT[20];
+unsigned char RegistersIN[20];
+
+unsigned char RegistersTEMP[20];
+bool CoilsTEMP[20];
+
+bool ComenzarEnvio = false;
+
+unsigned char inChar;
+unsigned char outChar;
 
 enum EstadosLectura
 {
   InicioLeerTrama,
-  ComprobarDireccion,
-  LeerOrden,
-  LeerCampoValor,
-  FinLeerTrama,
+  ComprobarDireccionH,
+  ComprobarDireccionL,
+  LeerOrdenH,
+  LeerOrdenL,
+  LeerDireccionMemH,
+  LeerDireccionMemL,
+  LeerQuantity_of_CR_Hi,
+  LeerQuantity_of_CR_Lo,
+  LeerByteCount,
+  LeerCampoDATOS,
+  LeerDato1,
+  LeerDato2,
+  LeerLRC16H,
+  LeerLRC16L,
+  FinLeerTrama1,
+  FinLeerTrama2
 };
 
-enum Ordenes
+enum EstadosEnvio
 {
-  LedRGB,
-  ValorUltrasonido,
+  Reposo,
+  EnviarInicio,
+  EnviarDireccionH,
+  EnviarDireccionL,
+  EnviarOrdenH,
+  EnviarOrdenL,
+  EnviarByteCount,
+  EnviarDATOS,
+  EnviarLRC,
+  EnviarFin1,
+  EnviarFin2
 };
 
-EstadosLectura EstadoActual;
+
+EstadosLectura EstadoLecturaActual;
+EstadosEnvio EstadoEnvioActual;
 
 void setup() 
 {
@@ -50,127 +126,427 @@ void setup()
   pinMode(GREEN, OUTPUT);
   pinMode(BLUE, OUTPUT);
 
-  analogWrite(RED, 0);
-  analogWrite(GREEN, 0);
-  analogWrite(BLUE, 0);
+  analogWrite(RED, RegistersOUT[RED_ADRESS]);
+  analogWrite(GREEN, RegistersOUT[GREEN_ADRESS]);
+  analogWrite(BLUE, RegistersOUT[BLUE_ADRESS]);
 
-  EstadoActual=InicioLeerTrama;
+  //BALL INTERRUPTOR
+  pinMode (Interruptor, INPUT);
+
+  //JOYSTICK
+  pinMode (CLICK, INPUT);
+
+  //
+
+  EstadoLecturaActual=InicioLeerTrama;
 } 
+
 
 
 //Con Loop podremos ver el mensaje completo
 void loop() 
 { 
-  if (inChar == 'F')
-  {
-    Serial.println(DISTANCIA);
-    inChar='t';
-  }
+  Adress = Starting_Address_Lo;
+
+
+  ActualizarRegistersIn();
+  ActualizarCoilsIn();
+
+  ActualizarColorLED();
+  /*
+  for (int i = 0; i<20;i++)
+    {
+      Serial.print(COILIn[i]);
+    }
+    Serial.println();
+    delay(1000);
+
+  for (int i = 0; i<20;i++)
+    {
+      Serial.print(COILOut[i]);
+    }
+    Serial.println();
+    delay(1000);
+
+  for (int i = 0; i<20;i++)
+    {
+      Serial.print(RegistersIN[i]);
+      Serial.print("  ");
+    }
+    Serial.println();
+    Serial.println();
+    Serial.println();
+    delay(1000);*/
+  
 }
 
 void FInicioLeerTrama()
 {
-  if(inChar == 'I') //Inicio de trama correcto
+  if(inChar == INICIO) //Inicio de trama correcto
   {
-    EstadoActual = ComprobarDireccion;
+    EstadoLecturaActual = ComprobarDireccionH;
   }
 }
 
-void FComprobarDireccion()
+void FComprobarDireccionH()
 {
-  if((int)inChar == midireccion)//Si el mensaje es para mi
+  if(inChar == miDireccionH)
   {
-    EstadoActual = LeerOrden;
+    LRC += LRC16H;
+    LRC += LRC16L;
+    LRC = LRC + inChar;
+    EstadoLecturaActual = ComprobarDireccionL;
   }
-  else EstadoActual = InicioLeerTrama;
+  else 
+  {
+    EstadoLecturaActual = InicioLeerTrama;
+  }
+}
+
+void FComprobarDireccionL()
+{
+  if(inChar == miDireccionL)//Si el mensaje es para mi
+  {
+    LRC += LRC16H;
+    LRC += LRC16L;
+    LRC = LRC + inChar;
+    EstadoLecturaActual = LeerOrdenH;
+  }
+  else 
+  {
+    EstadoLecturaActual = InicioLeerTrama;
+  }
 }
 
 
-void FLeerOrden()
+void FLeerOrdenH()
 {
-  switch(inChar)
-  {
-    case 'U' : Ultrasonido(); break;
-    case 'L' : LED(); 
-          break;
-  }
-  EstadoActual = LeerCampoValor;
+  LRC += LRC16H;
+  LRC += LRC16L;
+  LRC = LRC + inChar;
+  InstruccionH = inChar;
+  EstadoLecturaActual = LeerOrdenL;
 }
 
-void Ultrasonido()
+
+void FLeerOrdenL()
 {
-  int distance, duration;
+  LRC += LRC16H;
+  LRC += LRC16L;
+  LRC = LRC + inChar;
+  InstruccionL = inChar;
+  /*
+  switch(InstruccionL)
+  {
+    case 0x01: ReadDiscreteOutCoils(); break;
+    case 0x02: ReadDiscreteInCoils(); break;
+    case 0x03: ReadAnalogOutRegisters(); break;
+    case 0x04: ReadAnalogInRegisters(); break;
+    case 0x05: WriteDiscreteOutCoil(); break;
+    case 0x06: WriteAnalogOutRegisters(); break;
+    case 0x0f: WriteMultipleDiscreteOutCoils(); break;
+    case 0x10: WriteSimpleAnalogOutRegisters(); break;
+  }*/
+
+  EstadoLecturaActual = LeerDireccionMemH;
+
+}
+
+void FLeerDireccionMemH()
+{
+  LRC += LRC16H;
+  LRC += LRC16L;
+  LRC = LRC + inChar;
+  Starting_Address_Hi = inChar;
+  EstadoLecturaActual = LeerDireccionMemL;
+}
+
+void FLeerDireccionMemL()
+{
+  LRC += LRC16H;
+  LRC += LRC16L;
+  LRC = LRC + inChar;
+  Starting_Address_Lo = inChar;
+  if(InstruccionL == 0x05 or InstruccionL == 0x06) //el siguiente campo es un dato
+  {
+    EstadoLecturaActual = LeerDato1;
+  }
+  else 
+  {
+    EstadoLecturaActual = LeerQuantity_of_CR_Hi;
+  }
+}
+
+void FLeerDato1()
+{
+  LRC += LRC16H;
+  LRC += LRC16L;
+  LRC = LRC + inChar;
+  Dato1 = inChar;
+  EstadoLecturaActual = LeerDato2;
+}
+
+void FLeerDato2()
+{
+  LRC = LRC + inChar + 1;
+  Dato2 = inChar;
+  EstadoLecturaActual = LeerLRC16H;
+}
+
+void FLeerCampoDatos()
+{/*
+  if(InstruccionL == 0x05 or InstruccionL == 0x06 )
+  {
+    EstadoLecturaActual = LeerDato1;
+  }
+  else if (InstruccionL == 0x0F or InstruccionL == 0x10)
+  {
+    if(i < ByteCount)
+    {
+
+      i++;
+      FLeerCampoDatos();
+    }
+    else
+    {
+      i = 0;
+      EstadoLecturaActual = LeerLRC16H;
+    }
+  }*/
+}
+
+void FLeerQuantity_of_CR_Hi()
+{
+  LRC = LRC + inChar;
+  Quantity_of_CR_Hi = inChar;
+  EstadoLecturaActual = LeerQuantity_of_CR_Lo;
+}
+
+void FLeerQuantity_of_CR_Lo()
+{
+  LRC += LRC16H;
+  LRC += LRC16L;
+  LRC = LRC + inChar;
+  Quantity_of_CR_Lo = inChar;
+  if(InstruccionL == 0x01 or InstruccionL == 0x02 or InstruccionL == 0x03 or InstruccionL == 0x04)
+  {
+    LRC = LRC + 1;
+    EstadoLecturaActual = LeerLRC16H;
+  }
+  else 
+    EstadoLecturaActual = LeerByteCount;
+}
+
+void FLeerByteCount()
+{
+  LRC = LRC + inChar;
+  ByteCount = inChar;
+  EstadoLecturaActual = LeerCampoDATOS;
+}
+
+
+
+
+
+void ReadDiscreteOutCoils() //INSTRUCCION 1
+{
+  for(int i = 0; i< Quantity_of_CR_Lo; i++)
+  {
+    LRC = LRC + inChar;
+    CoilsTEMP[i] = COILOut[Adress+i];
+    if(i = Quantity_of_CR_Lo - 1)
+    {
+      LRC = LRC xor 0xFFFF;
+      LRC = LRC + 1;
+    }
+  }
+
+ 
+}
+
+void ReadDiscreteInCoils() //INSTRUCCION 2
+{
+  for(int i = 0; i < Quantity_of_CR_Lo; i++)
+  {
+    CoilsTEMP[i] = COILIn[Adress+i];
+    LRC = LRC + inChar;
+  }
+  /*if(i = Quantity_of_CR_Lo - 1)
+    {
+      LRC = LRC xor 0xFFFF;
+      LRC = LRC + 1;
+    }*/
+}
+
+void ReadAnalogOutRegisters() //INSTRUCCION 3
+{
+  for(int i = 0; i < Quantity_of_CR_Lo; i++)
+  {
+    RegistersTEMP[i] = RegistersOUT[Adress + i];
+  }
+
+  Serial.println();
+  Serial.print("Discrete Coil IN TEMP: ");
+  for (int i = 0; i<20;i++)
+    {
+      Serial.print(RegistersTEMP[i]);
+      Serial.print(" ");
+    }
+    Serial.println();
+    delay(1000);
+  
+}
+
+void ReadAnalogInRegisters()
+{
+  for(int i = 0; i < Quantity_of_CR_Lo; i++)
+  {
+    RegistersTEMP[i] = RegistersIN[Adress + i];
+    BytesRespuesta = BytesRespuesta+1;
+  }
+}
+
+void WriteDiscreteOutCoil() //LA RESPUESTA A ESTE MENSAJE ES UN ECHO CON EL MISMO CONTENIDO QUE LE LLEGO AL ESCLAVO
+{
+  if(Dato1 == 0x00 and Dato2 == 0xFF)
+  {
+    COILOut[Adress] = true;
+  }
+  else if(Dato1 == 0xFF and Dato2 == 0x00)
+  {
+    COILOut[Adress] = false;
+  }
+
+  Serial.println();
+  Serial.print("Discrete Coils OUT: ");
+  for (int i = 0; i<20;i++)
+    {
+      Serial.print(COILOut[i]);
+      Serial.print(" ");
+    }
+    Serial.println();
+    delay(1000);    
+  
+}
+
+void WriteAnalogOutRegisters() //LA RESPUESTA A ESTE MENSAJE ES UN ECHO CON EL MISMO CONTENIDO QUE LE LLEGO AL ESCLAVO
+{
+  RegistersOUT[Adress] = Dato2;
+
+  
+  
+}
+
+void WriteMultipleDiscreteOutCoils()
+{
+  for(int i = 0; i < ByteCount; i++)
+  {
+    for(int j = 0; j < 8; j++)
+    {
+      COILOut[Adress+(i*8)+j] = CoilsTEMP[(i*8)+j];
+    }
+  }
+}
+
+void WriteSimpleAnalogOutRegisters()
+{
+  for(int i = 0; i < ByteCount; i++)
+  {
+    RegistersOUT[Adress + i] = RegistersTEMP[i];
+  }
+}
+
+
+
+
+void ActualizarColorLED()
+{
+  analogWrite(BLUE, RegistersOUT[BLUE_ADRESS]);
+  analogWrite(GREEN, RegistersOUT[GREEN_ADRESS] );
+  analogWrite(RED, RegistersOUT[RED_ADRESS]);
+}
+void ActualizarRegistersIn()
+{
+  RegistersIN[EjeXAdress] = ValorEje(EjeX);
+  RegistersIN[EjeYAdress] = ValorEje(EjeY);
+  RegistersIN[UltraAdress] = DistanciaUltrasonido();
+}
+
+void ActualizarCoilsIn()
+{
+  COILIn[InterruptorAdress] = digitalRead(Interruptor); 
+  COILIn[ClickAdress] = digitalRead(CLICK);
+}
+
+unsigned char DistanciaUltrasonido()
+{
+  long duration;
+  unsigned char distance;
   digitalWrite(TRIGGER, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIGGER, LOW);
   duration = pulseIn(ECHO,HIGH);
   distance = duration / 2 / 7.6;
-  DISTANCIA = distance;
+  return distance;
 }
 
-void LED()
+int ValorEje(int EJE)
 {
-  //tenemos que leer el siguiente valor de la trama
-  EsperandoValor = true;
+  int value = analogRead(EJE)/4;
+  return value;
 }
 
-void FLeerCampoValor()
+
+
+
+void FLeerLRC16H()
 {
-  if(EsperandoValor == true)
+  if(inChar == LRC16H)
   {
-    COLOR = (int)inChar;
-    CambiarColorLED();
-    EsperandoValor=false;
+    EstadoLecturaActual = LeerLRC16L;
   }
-  EstadoActual = FinLeerTrama;
-}
-
-void CambiarColorLED()
-{
-  switch(COLOR)
+  else 
   {
-    case 0 : analogWrite(BLUE, 0);
-               analogWrite(GREEN, 0);
-               analogWrite(RED, 0);
-               break;
-    case 1 : analogWrite(BLUE, 255);
-               analogWrite(GREEN, 0);
-               analogWrite(RED, 0);
-               break;
-    case 2 : analogWrite(BLUE, 0);
-               analogWrite(GREEN, 255);
-               analogWrite(RED, 0);
-               break;
-    case 3 : analogWrite(BLUE, 255);
-               analogWrite(GREEN, 255);
-               analogWrite(RED, 0);
-               break;
-    case 4 : analogWrite(BLUE, 0);
-               analogWrite(GREEN, 0);
-               analogWrite(RED, 255);
-               break;
-    case 5 : analogWrite(BLUE, 255);
-               analogWrite(GREEN, 0);
-               analogWrite(RED, 255);
-               break;
-    case 6 : analogWrite(BLUE, 0);
-               analogWrite(GREEN, 255);
-               analogWrite(RED, 255);
-               break;
-    case 7 : analogWrite(BLUE, 255);
-               analogWrite(GREEN, 255);
-               analogWrite(RED, 255);
-               break;
+    EstadoLecturaActual = LeerLRC16L; //TEMPORAL
+  }
+}
+void FLeerLRC16L()
+{
+  if(inChar = LRC16L)
+  {
+    EstadoLecturaActual = FinLeerTrama1;
+  }
+  else
+  {
+    EstadoLecturaActual = FinLeerTrama1; //TEMPORAL
   }
 }
 
-void FFinLeerTrama()
+void FFinLeerTrama1()
 {
-  if(inChar != 'F')
+  if(inChar == Fin1)
   {
-    Serial.println("Fin Trama erroneo");
+    EstadoLecturaActual = FinLeerTrama2;
   }
-   EstadoActual = InicioLeerTrama;
+}
+void FFinLeerTrama2()
+{
+  if(inChar = Fin2)
+  {
+    switch(InstruccionL)
+    {
+      case 0x01: ReadDiscreteOutCoils(); break;
+      case 0x02: ReadDiscreteInCoils(); break;
+      case 0x03: ReadAnalogOutRegisters(); break;
+      case 0x04: ReadAnalogInRegisters(); break;
+      case 0x05: WriteDiscreteOutCoil(); break;
+      case 0x06: WriteAnalogOutRegisters(); break;
+      case 0x0f: WriteMultipleDiscreteOutCoils(); break;
+      case 0x10: WriteSimpleAnalogOutRegisters(); break;
+    }
+    ComenzarEnvio = true;
+    EstadoLecturaActual = InicioLeerTrama;
+  }
 }
 
 
@@ -180,37 +556,186 @@ void serialEvent()
 {
   while(Serial.available())
   {
-    inChar = (char)Serial.read();
+    inChar = (unsigned char)Serial.read();
      
        
-    switch(EstadoActual)
+    switch(EstadoLecturaActual)
     {
       case EstadosLectura::InicioLeerTrama : 
                   Serial.print(inChar);
                   Serial.print(" ");
                   FInicioLeerTrama();
             break;
-      case EstadosLectura::ComprobarDireccion : 
+      case EstadosLectura::ComprobarDireccionH : 
                   Serial.print((int)inChar);
                   Serial.print(" ");
-                  FComprobarDireccion();
+                  FComprobarDireccionH();
             break;
-      case EstadosLectura::LeerOrden : 
+      case EstadosLectura::ComprobarDireccionL : 
+                  Serial.print((int)inChar);
+                  Serial.print(" ");
+                  FComprobarDireccionL();
+            break;
+      case EstadosLectura::LeerOrdenH : 
                   Serial.print(inChar);
                   Serial.print(" ");
-                  FLeerOrden();
+                  FLeerOrdenH();
+            break;     
+      case EstadosLectura::LeerOrdenL : 
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerOrdenL();
             break;
-      case EstadosLectura::LeerCampoValor : 
-                  Serial.print((int)inChar); 
-                  Serial.print(" "); 
-                  FLeerCampoValor();
+      case EstadosLectura::LeerDireccionMemH :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerDireccionMemH();
             break;
-      case EstadosLectura::FinLeerTrama :
-                  Serial.print((char)inChar);
-                  Serial.println(" ");
-                  FFinLeerTrama();
+      case EstadosLectura::LeerDireccionMemL :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerDireccionMemL();
+            break;  
+      case EstadosLectura::LeerQuantity_of_CR_Hi :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerQuantity_of_CR_Hi();
+            break;
+      case EstadosLectura::LeerQuantity_of_CR_Lo :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerQuantity_of_CR_Lo();
+            break;
+      case EstadosLectura::LeerByteCount :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerByteCount();
+            break;
+      case EstadosLectura::LeerCampoDATOS :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerCampoDatos();
+            break;
+      case EstadosLectura::LeerDato1 :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerDato1();
+            break;
+      case EstadosLectura::LeerDato2 :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerDato2();
+            break;
+      case EstadosLectura::LeerLRC16H :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerLRC16H();
+            break;
+      case EstadosLectura::LeerLRC16L :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FLeerLRC16L();
+            break;
+      case EstadosLectura::FinLeerTrama1 :
+                  Serial.print(inChar);
+                  Serial.print(" ");
+                  FFinLeerTrama1();
+            break;
+      case EstadosLectura::FinLeerTrama2 :
+                  Serial.println(inChar);
+                  Serial.print(" ");
+                  FFinLeerTrama2();
             break;
     }
-    
   }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////// FUNCIONES DE RESPUESTA////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+void envio()
+{
+  switch (EstadoEnvioActual)
+  {
+    case EstadosEnvio::Reposo :
+                FReposo();
+         break;
+    case EstadosEnvio::EnviarInicio :
+                FEnviarInicio();
+         break;
+    case EstadosEnvio::EnviarDireccionH :
+                FEnviarDireccionH();
+         break;
+    case EstadosEnvio::EnviarDireccionL :
+                FEnviarDireccionL();
+         break;
+    case EstadosEnvio::EnviarOrdenH :
+                FEnviarOrdenH();
+         break;
+    case EstadosEnvio::EnviarOrdenL :
+                FEnviarOrdenL();
+         break;
+  }
+}
+/*
+  EnviarByteCount,
+  EnviarDATOS,
+  EnviarLRC,
+  EnviarFin1,
+  EnviarFin2*/
+void FReposo()
+{
+  
+}
+void FEnviarInicio()
+{
+  Serial.write(INICIO);
+}
+void FEnviarDireccionH()
+{
+  Serial.write(miDireccionH);
+}
+void FEnviarDireccionL()
+{
+  Serial.write(miDireccionH);
+}
+void FEnviarOrdenH()
+{
+  Serial.write(InstruccionH);
+}
+void FEnviarOrdenL()
+{
+  Serial.write(InstruccionL);
+}
+void FEnviarStartingAdressH()
+{
+  Serial.write(Starting_Address_Hi);
+}
+void FEnviarStartingAdressL()
+{
+  Serial.write(Starting_Address_Lo);
+}
+void FEnviarLRCH()
+{
+  Serial.write(LRC16H);
+}
+void FEnviarLRCL()
+{
+  Serial.write(LRC16L);
+}
+void FEnviarFIN1()
+{
+  Serial.write(Fin1);
+}
+void FEnviarFIN2()
+{
+  Serial.write(Fin2);
 }
