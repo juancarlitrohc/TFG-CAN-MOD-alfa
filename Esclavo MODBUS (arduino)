@@ -1,5 +1,3 @@
-#include <math.h>
-
 //ULTRASONIDO
 #define TRIGGER 6
 #define ECHO 7
@@ -114,6 +112,8 @@ enum EstadosEnvio
   EnviarByteCount,
   EnviarDireccionMemH,
   EnviarDireccionMemL,
+  EnviarQuantity_of_CR_Hi,
+  EnviarQuantity_of_CR_Lo,
   EnviarDATOS,
   EnviarLRCH,
   EnviarLRCL,
@@ -167,32 +167,47 @@ void loop()
   ActualizarCoilsIn();
 
   ActualizarColorLED();
-/*  
+  /*
   for (int i = 0; i<MaxAdress;i++)
     {
       Serial.print(COILIn[i]);
     }
     Serial.println();
-    delay(1000);
+    delay(1500);
+
 
   for (int i = 0; i<MaxAdress;i++)
     {
       Serial.print(COILOut[i]);
     }
     Serial.println();
-    //Serial.print(Starting_Address_Lo);
-    Serial.println();
+    
 
   for (int i = 0; i<MaxAdress;i++)
     {
       Serial.print(RegistersOUT[i]);
-      Serial.print("  ");
+      Serial.print(" ");
+    }
+    Serial.println();
+    for (int i = 0; i<MaxAdress;i++)
+    {
+      Serial.print(RegistersTEMP[i]);
+      Serial.print(" ");
     }
     Serial.println();
     Serial.println();
     Serial.println();
-    delay(1000);
-  */
+    delay(650);
+
+  for (int i = 0; i<MaxAdress;i++)
+    {
+      Serial.print(RegistersIN[i]);
+      Serial.print(" ");
+    }
+    Serial.println();
+    delay(650);
+*/
+  
 }
 
 void FInicioLeerTrama()
@@ -201,6 +216,7 @@ void FInicioLeerTrama()
   if(inChar == INICIO) //Inicio de trama correcto
   {
     //Serial.println("Comienza El Recivo ");
+    
     EstadoLecturaActual = ComprobarDireccionH;
   }
 }
@@ -246,7 +262,6 @@ void FLeerOrdenL()
 { 
   LRC = LRC + inChar;
   InstruccionL = inChar;
-  
   EstadoLecturaActual = LeerDireccionMemH;
 
 }
@@ -293,6 +308,7 @@ void FLeerCampoDatos()
   {
     LRC = LRC + inChar;
     RegistersTEMP[pos0]=inChar;
+    pos0 ++;
     EstadoLecturaActual = LeerCampoDATOS;
   }
   else
@@ -374,11 +390,11 @@ void FFinLeerTrama1()
 }
 void FFinLeerTrama2()
 {
-  //Serial.print("Termina El Recivo");
   LRC = 0x0000;
   Adress = Starting_Address_Lo;
   if(inChar == Fin2)
   {
+    
     switch(InstruccionL)
     {
       case 0x01: ReadDiscreteOutCoils(); break;
@@ -395,22 +411,24 @@ void FFinLeerTrama2()
   }
 }
 
-void ReadDiscreteOutCoils() //INSTRUCCION 1
+void ReadDiscreteOutCoils() //INSTRUCCION 1 //COMPLETADA
 {
   int j = 0;
   BytesRespuesta = 0x01;
+  int error=0;
   
   for(int i = 0; i< Quantity_of_CR_Lo; i++)
   {
-    Serial.println();
-    Serial.print(RegistersTEMP[BytesRespuesta-1]);
-    Serial.print(" + ");
-    Serial.print((int)pow(2, j)*COILOut[Adress+i]);
-    RegistersTEMP[BytesRespuesta-1] = RegistersTEMP[BytesRespuesta-1] + ((int)pow(2, j)*COILOut[Adress+i]);
-    Serial.print(" = ");
-    Serial.println(RegistersTEMP[BytesRespuesta-1]);
-    
-    if(j%7 == 0 and j!=0)
+    if(j>1 and COILOut[Adress+i]!=0)
+    {
+      error = 1;
+    }
+    else
+    {
+      error = 0;
+    }
+    RegistersTEMP[BytesRespuesta-1] = RegistersTEMP[BytesRespuesta-1] + (pow(2,j)*COILOut[Adress+i])+ error;
+    if(j%8 == 0 and j!=0)
     {
       BytesRespuesta = BytesRespuesta+1;
       j=0;
@@ -420,46 +438,54 @@ void ReadDiscreteOutCoils() //INSTRUCCION 1
       j = j +1;
     }
   }
-
-  Serial.print("COILOut: ");
-  
-  for(int i=0;i<MaxAdress;i++)
-  {
-    Serial.print(COILOut[i]);
-    Serial.print("");
-  }
-  Serial.println();
-
-  Serial.print("Registers TEMP: ");
-  
-  for(int i=0;i<MaxAdress;i++)
-  {
-    Serial.print(RegistersTEMP[i]);
-    Serial.print("");
-  }
-  Serial.println();
-  
+  BytesRespuesta = ((Quantity_of_CR_Lo-1)/8) + 1;  
 }
 
-void ReadDiscreteInCoils() //INSTRUCCION 2
+void ReadDiscreteInCoils() //INSTRUCCION 2 //COMPLETADA
 {
+  int j = 0;
+  BytesRespuesta = 0x01;
+  int error=0;
+  
   for(int i = 0; i < Quantity_of_CR_Lo; i++)
   {
-    CoilsTEMP[i] = COILIn[Adress+i];
+    if(j>1 and COILIn[Adress+i]!=0)
+    {
+      error = 1;
+    }
+    else
+    {
+      error = 0;
+    }
+    RegistersTEMP[BytesRespuesta-1] = RegistersTEMP[BytesRespuesta-1] + (pow(2,j)*COILIn[Adress+i])+ error;
+    if(j%8 == 0 and j!=0)
+    {
+      BytesRespuesta = BytesRespuesta+1;
+      j=0;
+    }
+    else 
+    {
+      j = j +1;
+    }
   }
   /*if(i = Quantity_of_CR_Lo - 1)
     {
       LRC = LRC xor 0xFFFF;
       LRC = LRC + 1;
     }*/
+
+  BytesRespuesta = ((Quantity_of_CR_Lo-1)/8) + 1;
+    
 }
 
 void ReadAnalogOutRegisters() //INSTRUCCION 3
 {
+  Serial.println("Instruccion 3 ");
   for(int i = 0; i < Quantity_of_CR_Lo; i++)
   {
     RegistersTEMP[i] = RegistersOUT[Adress + i];
   }
+  BytesRespuesta = Quantity_of_CR_Lo;
 }
 
 void ReadAnalogInRegisters()  //INSTRUCCION 4
@@ -490,24 +516,37 @@ void WriteAnalogOutRegisters()  //INSTRUCCION 6  //LA RESPUESTA A ESTE MENSAJE E
 
 void WriteMultipleDiscreteOutCoils()  //INSTRUCCION 0F
 {
-  for(int pos0 = 0 ; pos0 < Quantity_of_CR_Lo; pos0++)
+  int j = 0;
+  int ByteCounter = 0;
+  for (int i = 0; i<MaxAdress;i++)
     {
-        
-        restantes = restantes -1;
-        if(pos0%7 == 0 and pos0!=0)
+      Serial.print(RegistersTEMP[i]);
+    }
+    Serial.println();
+
+    
+    //k-ésimo bit de n
+    //(n >> k) & 1
+
+    for(int i = 0; i< Quantity_of_CR_Lo; i++)
+    {
+      COILOut[Adress + i] = (RegistersTEMP[ByteCounter] >> i) & 1;
+      if(j%8 == 0 and j!=0)
       {
-          pos2=0;
-          pos1++;
+        ByteCounter = ByteCounter+1;
+        j=0;
       }
-      else
+      else 
       {
-        pos2++;
+        j = j +1;
       }
     }
-    
-    pos0 = 0;
-    pos1 = 0;
-    pos2 = 0;  
+    for (int i = 0; i<MaxAdress;i++)
+    {
+      Serial.print(COILOut[i]);
+    }
+    Serial.println();
+    Serial.println();
 }
 
 
@@ -567,8 +606,7 @@ void serialEvent()
   //while(Serial.available())
   //{
     inChar = (unsigned char)Serial.read();
-     
-       
+    
     switch(EstadoLecturaActual)
     {
       case EstadosLectura::InicioLeerTrama :
@@ -689,6 +727,12 @@ void Envio()
     case EstadosEnvio::EnviarDireccionMemL :
                 FEnviarDireccionMemL();
          break;
+    case EstadosEnvio::EnviarQuantity_of_CR_Hi : 
+                FEnviarQuantity_of_CR_Hi();
+         break;
+    case EstadosEnvio::EnviarQuantity_of_CR_Lo :
+                FEnviarQuantity_of_CR_Lo();
+         break;
     case EstadosEnvio::EnviarDato1 :
                 FEnviarDato1();
          break;
@@ -778,6 +822,7 @@ void FEnviarOrdenL()
 
 void FEnviarByteCount()
 {
+  
   Serial.print((int)BytesRespuesta);
   Serial.print(" ");
   EstadoEnvioActual = EnviarDATOS;
@@ -800,6 +845,28 @@ void FEnviarDireccionMemL()
     EstadoEnvioActual = EnviarDato1;
     Envio();
   }
+  else
+  {
+    EstadoEnvioActual = EnviarQuantity_of_CR_Hi;
+    Envio();
+  }
+}
+
+void FEnviarQuantity_of_CR_Hi()
+{
+  Serial.print((int)Quantity_of_CR_Hi);
+  Serial.print(" ");
+  EstadoEnvioActual = EnviarQuantity_of_CR_Lo;
+  Envio();
+}
+
+
+void FEnviarQuantity_of_CR_Lo()
+{
+  Serial.print((int)Quantity_of_CR_Lo);
+  Serial.print(" ");
+  EstadoEnvioActual = EnviarLRCH;
+  Envio();
 }
 
 void FEnviarDato1()
