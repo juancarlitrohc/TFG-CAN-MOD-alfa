@@ -518,21 +518,17 @@ void WriteMultipleDiscreteOutCoils()  //INSTRUCCION 0F
 {
   int j = 0;
   int ByteCounter = 0;
-  for (int i = 0; i<MaxAdress;i++)
-    {
-      Serial.print(RegistersTEMP[i]);
-    }
-    Serial.println();
+  
 
-    
     //k-ésimo bit de n
     //(n >> k) & 1
 
     for(int i = 0; i< Quantity_of_CR_Lo; i++)
     {
-      COILOut[Adress + i] = (RegistersTEMP[ByteCounter] >> i) & 1;
-      if(j%8 == 0 and j!=0)
+      COILOut[Adress + i] = (RegistersTEMP[ByteCounter] >> j) & 1;
+      if(j%7 == 0 and j!=0)
       {
+        
         ByteCounter = ByteCounter+1;
         j=0;
       }
@@ -541,12 +537,6 @@ void WriteMultipleDiscreteOutCoils()  //INSTRUCCION 0F
         j = j +1;
       }
     }
-    for (int i = 0; i<MaxAdress;i++)
-    {
-      Serial.print(COILOut[i]);
-    }
-    Serial.println();
-    Serial.println();
 }
 
 
