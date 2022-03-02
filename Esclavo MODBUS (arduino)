@@ -473,7 +473,6 @@ void ReadDiscreteInCoils() //INSTRUCCION 2 //COMPLETADA
 
 void ReadAnalogOutRegisters() //INSTRUCCION 3
 {
-  Serial.println("Instruccion 3 ");
   for(int i = 0; i < Quantity_of_CR_Lo; i++)
   {
     RegistersTEMP[i] = RegistersOUT[Adress + i];
