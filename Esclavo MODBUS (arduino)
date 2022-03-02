@@ -7,7 +7,7 @@
 //joystick ANALOGICO
 #define EjeX 0
 #define EjeY 1
-#define CLICK 13
+#define CLICK 11
 
 #define EjeXAdress 0
 #define EjeYAdress 1
@@ -70,7 +70,6 @@ int pos1 = 0;
 int pos2 = 0;
 int restantes = 0;
 
-//bool ComenzarEnvio = false;
 
 unsigned char inChar;
 unsigned char outChar;
@@ -101,7 +100,6 @@ enum EstadosLectura
 
 enum EstadosEnvio
 {
-  Reposo,
   EnviarInicio,
   EnviarDireccionH,
   EnviarDireccionL,
@@ -156,6 +154,8 @@ void setup()
   //
 
   EstadoLecturaActual=InicioLeerTrama;
+  EstadoEnvioActual =EnviarInicio;
+   
 } 
 
 
@@ -214,9 +214,7 @@ void FInicioLeerTrama()
 {
   LRC = 0x0000;
   if(inChar == INICIO) //Inicio de trama correcto
-  {
-    //Serial.println("Comienza El Recivo ");
-    
+  {    
     EstadoLecturaActual = ComprobarDireccionH;
   }
 }
@@ -352,10 +350,7 @@ void FLeerLRC16H()
   LRC = LRC xor 0xFFFF;
   LRC = LRC + 1;
   
-  //Serial.print("LRCH");
   LRC16H = LRC>>8 ;
-  //Serial.print("LRC16H: ");
-  //Serial.println((int)LRC16H);
   if(inChar == LRC16H)
   {
     EstadoLecturaActual = LeerLRC16L;
@@ -369,8 +364,6 @@ void FLeerLRC16H()
 void FLeerLRC16L()
 {
   LRC16L = LRC;
-  //Serial.print("LRC16L: ");
-  //Serial.println((int)LRC16L);
   if(inChar = LRC16L)
   {
     EstadoLecturaActual = FinLeerTrama1;
@@ -406,7 +399,7 @@ void FFinLeerTrama2()
       case 0x0f: WriteMultipleDiscreteOutCoils(); break;
       case 0x10: WriteSimpleAnalogOutRegisters(); break;
     }
-    ComenzarEnvio();
+    Envio();
     EstadoLecturaActual = InicioLeerTrama;
   }
 }
@@ -589,6 +582,8 @@ int ValorEje(int EJE)
 
 
 
+
+
 //Con esta funcion podemos comprobar cada 8bits
 void serialEvent()
 {
@@ -666,10 +661,8 @@ void serialEvent()
       case EstadosLectura::FinLeerTrama2 :
                   //Serial.write(inChar);
                   FFinLeerTrama2();
-                  
             break;
     }
-  //}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -685,195 +678,171 @@ void serialEvent()
 
 void Envio()
 {
-  switch (EstadoEnvioActual)
+  bool FIN_ENVIO = false;
+  do
   {
-    case EstadosEnvio::Reposo :
-                FReposo();
-         break;
-    case EstadosEnvio::EnviarInicio :
-                FEnviarInicio();
-         break;
-    case EstadosEnvio::EnviarDireccionH :
-                FEnviarDireccionH();
-         break;
-    case EstadosEnvio::EnviarDireccionL :
-                FEnviarDireccionL();
-         break;
-    case EstadosEnvio::EnviarOrdenH :
-                FEnviarOrdenH();
-         break;
-    case EstadosEnvio::EnviarOrdenL :
-                FEnviarOrdenL();
-         break;
-    case EstadosEnvio::EnviarByteCount :
-                FEnviarByteCount();
-         break;
-    case EstadosEnvio::EnviarDATOS :
-                FEnviarDatos();
-         break;
-    case EstadosEnvio::EnviarDireccionMemH :
-                FEnviarDireccionMemH();
-         break;
-    case EstadosEnvio::EnviarDireccionMemL :
-                FEnviarDireccionMemL();
-         break;
-    case EstadosEnvio::EnviarQuantity_of_CR_Hi : 
-                FEnviarQuantity_of_CR_Hi();
-         break;
-    case EstadosEnvio::EnviarQuantity_of_CR_Lo :
-                FEnviarQuantity_of_CR_Lo();
-         break;
-    case EstadosEnvio::EnviarDato1 :
-                FEnviarDato1();
-         break;
-    case EstadosEnvio::EnviarDato2 :
-                FEnviarDato2();
-         break;
-    case EstadosEnvio::EnviarLRCH :
-                FEnviarLRCH();
-         break;
-    case EstadosEnvio::EnviarLRCL :
-                FEnviarLRCL();
-         break;
-    case EstadosEnvio::EnviarFin1 : 
-                FEnviarFIN1();
-         break;
-    case EstadosEnvio::EnviarFin2 : 
-                FEnviarFIN2();
-         break;
-  }
+    digitalWrite(EnTxPin2, HIGH);
+    delay(2500);
+    switch (EstadoEnvioActual)
+    {
+      case EstadosEnvio::EnviarInicio : //0
+                  FEnviarInicio();
+           break;
+      case EstadosEnvio::EnviarDireccionH : //1
+                  FEnviarDireccionH();
+           break;
+      case EstadosEnvio::EnviarDireccionL : //2
+                  FEnviarDireccionL();
+           break;
+      case EstadosEnvio::EnviarOrdenH : //3
+                  FEnviarOrdenH();
+           break;
+      case EstadosEnvio::EnviarOrdenL : //4
+                  FEnviarOrdenL();
+           break;
+      case EstadosEnvio::EnviarByteCount :
+                  FEnviarByteCount();
+           break;
+      case EstadosEnvio::EnviarDATOS :
+                  FEnviarDatos();
+           break;
+      case EstadosEnvio::EnviarDireccionMemH : //5
+                  FEnviarDireccionMemH();
+           break;
+      case EstadosEnvio::EnviarDireccionMemL : //6
+                  FEnviarDireccionMemL();
+           break;
+      case EstadosEnvio::EnviarQuantity_of_CR_Hi : 
+                  FEnviarQuantity_of_CR_Hi();
+           break;
+      case EstadosEnvio::EnviarQuantity_of_CR_Lo :
+                  FEnviarQuantity_of_CR_Lo();
+           break;
+      case EstadosEnvio::EnviarDato1 :    //11
+                  FEnviarDato1();
+           break;
+      case EstadosEnvio::EnviarDato2 :  //12
+                  FEnviarDato2();
+           break;
+      case EstadosEnvio::EnviarLRCH : //13
+                  FEnviarLRCH();
+           break;
+      case EstadosEnvio::EnviarLRCL : //14
+                  FEnviarLRCL();
+           break;
+      case EstadosEnvio::EnviarFin1 : //15
+                  FEnviarFIN1();
+           break;
+      case EstadosEnvio::EnviarFin2 : //16
+                  FEnviarFIN2();
+                  delay(1);
+                  FEnviarFIN2();
+                  FIN_ENVIO = true;
+           break;
+    }
+  }while(FIN_ENVIO != true);
+  digitalWrite(EnTxPin2, LOW);
 }
 
-
-void FReposo()
-{
-  /*Serial.print("REPOSO");
-  if(ComenzarEnvio == true)
-  {
-    Serial.print("Comienza El Envio");
-    EstadoEnvioActual = EnviarInicio;
-    ComenzarEnvio = false;
-    Envio();
-  }
-  else
-    EstadoEnvioActual == Reposo;*/
-}
-
-void ComenzarEnvio()
-{
-  EstadoEnvioActual = EnviarInicio;
-  Envio();
-}
 
 void FEnviarInicio()
 {
-  Serial.print((int)INICIO);
-  Serial.print(" ");
-  EstadoEnvioActual = EnviarDireccionH;
-  Envio();
   
+  Serial.write(INICIO);
+  //Serial.write(0x52);
+  EstadoEnvioActual = EnviarDireccionH;
+  LRC16H = 0x00;
+  LRC16L = 0x00;
+  LRC = 0x00;
 }
 void FEnviarDireccionH()
 {
-  Serial.print((int)miDireccionH);
-  Serial.print(" ");
+  Serial.write(miDireccionH);
+  LRC = LRC + miDireccionH;
   EstadoEnvioActual = EnviarDireccionL;
-  Envio();
 }
 void FEnviarDireccionL()
 {
-  Serial.print((int)miDireccionL);
-  Serial.print(" ");
+  Serial.write(miDireccionL);
+  LRC = LRC + miDireccionL;
   EstadoEnvioActual = EnviarOrdenH;
-  Envio();
 }
 void FEnviarOrdenH()
 {
-  Serial.print((int)InstruccionH);
-  Serial.print(" ");
+  Serial.write(InstruccionH);
+  LRC = LRC + InstruccionH;
   EstadoEnvioActual = EnviarOrdenL;
-  Envio();
 }
 void FEnviarOrdenL()
 {
-  Serial.print((int)InstruccionL);
-   Serial.print(" ");
+  Serial.write(InstruccionL);
+  LRC = LRC + InstruccionL;
   if(InstruccionL == 0x01 || InstruccionL == 0x02 || InstruccionL == 0x03 || InstruccionL == 0x04)
   {
     EstadoEnvioActual = EnviarByteCount;
-    Envio();
   }
   else
   {
     EstadoEnvioActual = EnviarDireccionMemH;
-    Envio();
   }
 }
 
 void FEnviarByteCount()
 {
-  
-  Serial.print((int)BytesRespuesta);
-  Serial.print(" ");
+  Serial.write(BytesRespuesta);
+  LRC = LRC + BytesRespuesta;
   EstadoEnvioActual = EnviarDATOS;
-  Envio();
 }
 
 void FEnviarDireccionMemH()
 {
-  Serial.print((int)Starting_Address_Hi);
-  Serial.print(" ");
+  //Serial.write("ESTOY EN DIRECCION MEM H");
+  Serial.write(Starting_Address_Hi);
+  LRC = LRC + Starting_Address_Hi;
   EstadoEnvioActual = EnviarDireccionMemL;
-  Envio();
 }
 void FEnviarDireccionMemL()
 {
-  Serial.print((int)Starting_Address_Lo);
-  Serial.print(" ");
+  Serial.write(Starting_Address_Lo);
+  LRC = LRC + Starting_Address_Lo;
   if(InstruccionL == 0x05 || InstruccionL == 0x06)
   {
     EstadoEnvioActual = EnviarDato1;
-    Envio();
   }
   else
   {
     EstadoEnvioActual = EnviarQuantity_of_CR_Hi;
-    Envio();
   }
 }
 
 void FEnviarQuantity_of_CR_Hi()
 {
-  Serial.print((int)Quantity_of_CR_Hi);
-  Serial.print(" ");
+  Serial.write(Quantity_of_CR_Hi);
+  LRC = LRC + Quantity_of_CR_Hi;
   EstadoEnvioActual = EnviarQuantity_of_CR_Lo;
-  Envio();
 }
 
 
 void FEnviarQuantity_of_CR_Lo()
 {
-  Serial.print((int)Quantity_of_CR_Lo);
-  Serial.print(" ");
+  Serial.write(Quantity_of_CR_Lo);
+  LRC = LRC + Quantity_of_CR_Lo;
   EstadoEnvioActual = EnviarLRCH;
-  Envio();
 }
 
 void FEnviarDato1()
 {
-  Serial.print((int)Dato1);
-  Serial.print(" ");
+  Serial.write(Dato1);
+  LRC = LRC + Dato1;
   EstadoEnvioActual = EnviarDato2;
-  Envio();
 }
 void FEnviarDato2()
 {
-  Serial.print((int)Dato2);
-  Serial.print(" ");
+  Serial.write(Dato2);
+  LRC = LRC + Dato2;
   if(InstruccionL == 0x05 || InstruccionL == 0x06)
   {
     EstadoEnvioActual = EnviarLRCH;
-    Envio();
   }
 }
 
@@ -881,44 +850,40 @@ void FEnviarDatos()
 {
   for(int i = 0; i < BytesRespuesta; i++)
   {
-      Serial.print((int)RegistersTEMP[i]);
-      Serial.print(" ");
+      Serial.write(RegistersTEMP[i]);
+      LRC = LRC + RegistersTEMP[i];
   }
+  
   EstadoEnvioActual = EnviarLRCH;
-  Envio();
   
 }
 
 void FEnviarLRCH()
 {
-  Serial.print((int)LRC16H);
-  Serial.print(" ");
+  LRC = LRC xor 0xFFFF;
+  LRC = LRC + 1;
+  LRC16H = LRC>>8 ;
+  Serial.write(LRC16H);
   EstadoEnvioActual = EnviarLRCL;
-  Envio();
 }
 void FEnviarLRCL()
 {
-  Serial.print((int)LRC16L);
-  Serial.print(" ");
+  LRC16L = LRC;
+  Serial.write(LRC16L);
   EstadoEnvioActual = EnviarFin1;
-  Envio();
 }
 void FEnviarFIN1()
 {
-  Serial.print((int)Fin1);
-  Serial.print(" ");
+  Serial.write(Fin1);
   EstadoEnvioActual = EnviarFin2;
-  Envio();
 }
 void FEnviarFIN2()
 {
-  Serial.print((int)Fin2);
-  Serial.println(" ");
+  Serial.write(Fin2);
   BytesRespuesta = 0x00;
   for(int i = 0 ; i < MaxAdress ; i++)
   {
     RegistersTEMP[i] = 0x00;
   }
-  EstadoEnvioActual = Reposo;
-  Envio();
+  EstadoEnvioActual = EnviarInicio;
 }
